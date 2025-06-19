@@ -382,10 +382,16 @@ function updateSettingsSummary() {
     const list = document.getElementById('settings-list');
     const settings = [];
     
-    if (!selectedVideo) {
+    // 检查是否有视频被选择（上传模式或文件夹模式）
+    const hasVideo = (sourceType === 'upload' && selectedVideo) || 
+                     (sourceType === 'folder' && selectedVideoName && selectedFolder);
+    
+    if (!hasVideo) {
         settings.push('请先选择视频文件');
     } else {
-        settings.push(`视频文件: ${selectedVideo.name}`);
+        // 根据不同模式显示不同的文件名
+        const videoName = sourceType === 'upload' ? selectedVideo.name : selectedVideoName;
+        settings.push(`视频文件: ${videoName}`);
         
         // 画面调整
         const adjustments = [];
