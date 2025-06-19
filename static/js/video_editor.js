@@ -494,7 +494,7 @@ async function processVideo() {
     }
     
     // 显示处理状态
-    const statusDiv = document.getElementById('process-status');
+    const statusDiv = document.getElementById('progress-section');
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     
