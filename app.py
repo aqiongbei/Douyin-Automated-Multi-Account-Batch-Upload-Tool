@@ -579,6 +579,283 @@ def handle_close_browser(data):
 def index():
     return render_template('index.html')
 
+@app.route('/video-editor')
+def video_editor():
+    return render_template('video_editor.html')
+
+# 获取downloads下的子文件夹列表
+@app.route('/api/downloads/folders')
+def get_downloads_folders():
+    try:
+        downloads_path = os.path.join(os.getcwd(), 'downloads')
+        folders = []
+        if os.path.exists(downloads_path):
+            for item in os.listdir(downloads_path):
+                item_path = os.path.join(downloads_path, item)
+                if os.path.isdir(item_path):
+                    folders.append(item)
+        return jsonify({'success': True, 'folders': folders})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# 获取指定文件夹下的视频文件列表
+@app.route('/api/downloads/videos/<folder_name>')
+def get_folder_videos_api(folder_name):
+    try:
+        folder_path = os.path.join(os.getcwd(), 'downloads', folder_name)
+        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+            return jsonify({'success': False, 'error': '文件夹不存在'})
+        
+        video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.m4v']
+        videos = []
+        
+        for item in os.listdir(folder_path):
+            if any(item.lower().endswith(ext) for ext in video_extensions):
+                videos.append(item)
+        
+        return jsonify({'success': True, 'videos': videos})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/video/process', methods=['POST'])
+def process_video():
+    """处理视频编辑请求"""
+    try:
+        # 获取设置
+        if request.content_type == 'application/json':
+            # JSON请求 - 来自文件夹选择
+            data = request.get_json()
+            settings = data.get('settings', {})
+            folder_name = data.get('folder_name')
+            video_filename = data.get('video_filename')
+            
+            if not folder_name or not video_filename:
+                return jsonify({'error': '缺少文件夹或视频文件名'}), 400
+                
+            # 从downloads文件夹获取视频
+            input_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
+            if not os.path.exists(input_path):
+                return jsonify({'error': '指定的视频文件不存在'}), 400
+        else:
+            # 表单请求 - 来自文件上传
+            video_file = request.files.get('video')
+            settings = request.form.get('settings')
+            
+            if not video_file:
+                return jsonify({'error': '未找到视频文件'}), 400
+            
+            if settings:
+                import json
+                settings = json.loads(settings)
+            else:
+                settings = {}
+            
+            # 保存上传的文件
+            import tempfile
+            temp_dir = tempfile.mkdtemp()
+            input_path = os.path.join(temp_dir, video_file.filename)
+            video_file.save(input_path)
+            video_filename = video_file.filename
+        
+        # 生成输出文件名和路径
+        name, ext = os.path.splitext(video_filename)
+        if request.content_type == 'application/json':
+            # 文件夹选择模式 - 保持文件夹结构
+            output_filename = f"{name}_edited{ext}"
+            output_dir = os.path.join('videos', folder_name)
+            output_path = os.path.join(output_dir, output_filename)
+        else:
+            # 上传模式 - 直接放在videos根目录
+            output_filename = f"{name}_edited{ext}"
+            output_dir = 'videos'
+            output_path = os.path.join(output_dir, output_filename)
+        
+        # 确保输出目录存在
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 构建FFmpeg命令
+        ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
+        
+        # 执行FFmpeg命令
+        import subprocess
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            # 如果是文件夹选择模式，尝试复制对应的txt文件
+            if request.content_type == 'application/json' and folder_name and video_filename:
+                # 查找原始txt文件（需要URL解码文件名）
+                import urllib.parse
+                decoded_name = urllib.parse.unquote(name)
+                original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}.txt")
+                
+                # 如果解码后的文件不存在，尝试使用原始文件名
+                if not os.path.exists(original_txt_path):
+                    original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}.txt")
+                
+                if os.path.exists(original_txt_path):
+                    # 复制txt文件到输出目录
+                    output_txt_path = os.path.join(output_dir, f"{name}_edited.txt")
+                    try:
+                        import shutil
+                        shutil.copy2(original_txt_path, output_txt_path)
+                        print(f"已复制txt文件: {original_txt_path} -> {output_txt_path}")
+                    except Exception as e:
+                        print(f"复制txt文件失败: {e}")
+                else:
+                    print(f"未找到对应的txt文件: {original_txt_path}")
+                
+                # 同时尝试复制可能存在的封面图片文件
+                for img_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                    original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}{img_ext}")
+                    if not os.path.exists(original_img_path):
+                        original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
+                    
+                    if os.path.exists(original_img_path):
+                        output_img_path = os.path.join(output_dir, f"{name}_edited{img_ext}")
+                        try:
+                            import shutil
+                            shutil.copy2(original_img_path, output_img_path)
+                            print(f"已复制封面图片: {original_img_path} -> {output_img_path}")
+                            break  # 只复制第一个找到的图片
+                        except Exception as e:
+                            print(f"复制封面图片失败: {e}")
+                
+                # 如果有文件夹结构，返回相对路径
+                relative_output = os.path.join(folder_name, output_filename).replace('\\', '/')
+                return jsonify({
+                    'success': True,
+                    'output_file': relative_output,
+                    'message': '视频处理完成，已保持文件夹结构并复制txt文件'
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'output_file': output_filename,
+                    'message': '视频处理完成'
+                })
+        else:
+            return jsonify({
+                'error': f'视频处理失败: {result.stderr}'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'处理错误: {str(e)}'}), 500
+
+def build_ffmpeg_command(input_path, output_path, settings):
+    """构建FFmpeg命令"""
+    cmd = ['ffmpeg', '-i', input_path]
+    
+    # 视频滤镜
+    filters = []
+    
+    # 画面调整
+    if settings.get('brightness', 0) != 0 or settings.get('contrast', 0) != 0 or settings.get('saturation', 0) != 0:
+        brightness = settings.get('brightness', 0) / 100.0
+        contrast = 1 + settings.get('contrast', 0) / 100.0
+        saturation = 1 + settings.get('saturation', 0) / 100.0
+        filters.append(f'eq=brightness={brightness}:contrast={contrast}:saturation={saturation}')
+    
+    # 锐化
+    if settings.get('sharpen', 0) > 0:
+        sharpen_value = settings.get('sharpen', 0) / 100.0
+        filters.append(f'unsharp=5:5:{sharpen_value}:5:5:0.0')
+    
+    # 降噪
+    if settings.get('denoise', 0) > 0:
+        denoise_value = settings.get('denoise', 0) / 100.0 * 10
+        filters.append(f'hqdn3d={denoise_value}')
+    
+    # 分辨率设置
+    resolution = settings.get('resolution', {})
+    if resolution.get('width') and resolution.get('height'):
+        width = resolution['width']
+        height = resolution['height']
+        mode = resolution.get('mode', 'crop')
+        
+        if mode == 'stretch':
+            filters.append(f'scale={width}:{height}')
+        elif mode == 'crop':
+            filters.append(f'scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}')
+        elif mode == 'letterbox':
+            filters.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black')
+        elif mode == 'pad':
+            filters.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease,gblur=sigma=20,scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}')
+    
+    # 旋转和翻转
+    transform = settings.get('transform', {})
+    if transform.get('rotation', 0) != 0:
+        rotation = transform['rotation']
+        if rotation == 90:
+            filters.append('transpose=1')
+        elif rotation == 180:
+            filters.append('transpose=1,transpose=1')
+        elif rotation == 270:
+            filters.append('transpose=2')
+    
+    if transform.get('flipH', False):
+        filters.append('hflip')
+    
+    if transform.get('flipV', False):
+        filters.append('vflip')
+    
+    # 分屏效果
+    split_screen = settings.get('splitScreen', {})
+    if split_screen.get('enabled', False):
+        direction = split_screen.get('direction', 'horizontal')
+        blur = split_screen.get('blur', False)
+        
+        if direction == 'horizontal':
+            filters.append('scale=iw/3:ih/3,tile=3x3')
+        elif direction == 'vertical':
+            filters.append('scale=iw/3:ih/3,tile=3x3')
+        
+        if blur:
+            filters.append('boxblur=5:1')
+    
+    # 动态缩放
+    zoom = settings.get('zoom', {})
+    if zoom.get('enabled', False):
+        zoom_min = zoom.get('min', 0.01)
+        zoom_max = zoom.get('max', 0.10)
+        direction = zoom.get('direction', 'in')
+        
+        if direction == 'in':
+            filters.append(f'zoompan=z=\'min(zoom+{zoom_max},1.5)\':d=1:x=iw/2-(iw/zoom/2):y=ih/2-(ih/zoom/2)')
+        elif direction == 'out':
+            filters.append(f'zoompan=z=\'max(zoom-{zoom_max},1)\':d=1:x=iw/2-(iw/zoom/2):y=ih/2-(ih/zoom/2)')
+    
+    # 应用滤镜
+    if filters:
+        cmd.extend(['-vf', ','.join(filters)])
+    
+    # 帧率设置
+    framerate = settings.get('framerate', {})
+    target_fps = framerate.get('target', 30)
+    cmd.extend(['-r', str(target_fps)])
+    
+    # 抽帧设置
+    frame_skip = settings.get('frameSkip', {})
+    if frame_skip.get('enabled', False):
+        skip_start = frame_skip.get('start', 25)
+        skip_end = frame_skip.get('end', 30)
+        # 简化抽帧实现：每N帧取一帧
+        cmd.extend(['-vf', f'select=not(mod(n\\,{skip_start}))'])
+    
+    # 码率设置
+    bitrate = settings.get('bitrate', {})
+    if bitrate.get('mode') == 'fixed':
+        fixed_bitrate = bitrate.get('fixed', 3000)
+        cmd.extend(['-b:v', f'{fixed_bitrate}k'])
+    else:
+        # 倍率模式，使用默认码率的倍数
+        multiplier = (bitrate.get('min', 1.05) + bitrate.get('max', 1.95)) / 2
+        cmd.extend(['-q:v', str(int(28 / multiplier))])  # 反向计算质量参数
+    
+    # 输出设置
+    cmd.extend(['-y', output_path])
+    
+    return cmd
+
 @app.route('/test_status')
 def test_status():
     return send_from_directory('.', 'test_status.html')
@@ -1160,7 +1437,18 @@ def upload_status():
 
 @app.route('/videos/<path:filename>')
 def serve_video(filename):
-    return send_from_directory('videos', filename)
+    # 支持子文件夹结构的视频文件访问
+    video_path = os.path.join('videos', filename)
+    if os.path.exists(video_path):
+        return send_from_directory('videos', filename)
+    else:
+        return "视频文件不存在", 404
+
+# 提供downloads文件夹中视频文件的访问
+@app.route('/videos/downloads/<folder_name>/<video_name>')
+def serve_downloads_video(folder_name, video_name):
+    downloads_path = os.path.join(os.getcwd(), 'downloads')
+    return send_from_directory(os.path.join(downloads_path, folder_name), video_name)
 
 def get_title_tags_from_txt(video_path):
     txt_path = os.path.splitext(video_path)[0] + ".txt"

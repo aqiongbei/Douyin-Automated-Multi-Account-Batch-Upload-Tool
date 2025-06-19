@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能视频编辑器</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/video_editor.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css">
+</head>
+<body>
+    <!-- 全局工具栏 -->
+    <div class="global-toolbar">
+        <div class="toolbar-left">
+            <button class="back-btn" onclick="window.location.href='/'">
+                <i class="ri-arrow-left-line"></i>
+            </button>
+            <h1><i class="ri-video-edit-line"></i> 智能视频编辑器</h1>
+        </div>
+        <div class="toolbar-right">
+            <button class="save-preset-btn" onclick="savePreset()">
+                <i class="ri-save-line"></i> 保存预设
+            </button>
+            <button class="load-preset-btn" onclick="loadPreset()">
+                <i class="ri-folder-open-line"></i> 加载预设
+            </button>
+        </div>
+    </div>
+
+    <div class="editor-container">
+        <!-- 左侧：视频源选择和预览 -->
+        <div class="editor-left">
+            <div class="section">
+                <h2><i class="ri-video-line"></i> 视频源选择</h2>
+                
+                <!-- 选择视频源类型 -->
+                <div class="source-type-selector">
+                    <label class="radio-label">
+                        <input type="radio" name="sourceType" value="upload" checked onchange="toggleSourceType()">
+                        <i class="ri-radio-button-line unchecked"></i>
+                        <i class="ri-checkbox-circle-line checked"></i>
+                        <span>上传视频文件</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="sourceType" value="folder" onchange="toggleSourceType()">
+                        <i class="ri-radio-button-line unchecked"></i>
+                        <i class="ri-checkbox-circle-line checked"></i>
+                        <span>从downloads文件夹选择</span>
+                    </label>
+                </div>
+                
+                <!-- 文件上传 -->
+                <div class="video-input" id="upload-section">
+                    <div class="upload-area" onclick="document.getElementById('video-file').click()">
+                        <i class="ri-upload-cloud-line"></i>
+                        <p>点击选择视频文件</p>
+                        <span>支持 MP4, AVI, MOV, MKV 格式</span>
+                    </div>
+                    <input type="file" id="video-file" accept="video/*" onchange="handleVideoSelect(this)">
+                </div>
+                
+                <!-- 文件夹选择 -->
+                <div class="folder-input" id="folder-section" style="display: none;">
+                    <div class="folder-select">
+                        <label><i class="ri-folder-line"></i> 选择文件夹</label>
+                        <select id="folder-select" onchange="loadFolderVideos()">
+                            <option value="">请选择下载文件夹</option>
+                        </select>
+                    </div>
+                    <div class="video-select" id="video-select-section" style="display: none;">
+                        <label><i class="ri-video-line"></i> 选择视频</label>
+                        <select id="video-select" onchange="handleFolderVideoSelect()">
+                            <option value="">请选择视频文件</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="video-input">
+                    
+                    <div class="selected-video" id="selected-video" style="display: none;">
+                        <div class="video-info">
+                            <i class="ri-play-circle-line"></i>
+                            <div class="info">
+                                <h4 id="video-name">未选择视频</h4>
+                                <div class="video-details">
+                                    <span id="video-size">0 MB</span>
+                                    <span id="video-duration">00:00</span>
+                                    <span id="video-resolution">0x0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="remove-video" onclick="removeVideo()">
+                            <i class="ri-close-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="video-preview">
+                    <h3><i class="ri-tv-line"></i> 视频预览</h3>
+                    <div class="preview-container">
+                        <video id="video-preview" controls style="display: none;">
+                            您的浏览器不支持视频播放
+                        </video>
+                        <div class="no-video-placeholder" id="no-video-placeholder">
+                            <i class="ri-film-line"></i>
+                            <p>请先选择视频文件</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间：编辑控制区 -->
+        <div class="editor-center">
+            <!-- 画面调整 -->
+            <div class="section">
+                <h2><i class="ri-contrast-line"></i> 画面调整</h2>
+                <div class="adjustment-controls">
+                    <div class="control-group">
+                        <label><i class="ri-sun-line"></i> 亮度</label>
+                        <div class="range-control">
+                            <input type="range" id="brightness" min="-100" max="100" value="0" oninput="updateAdjustment()">
+                            <span id="brightness-value">0</span>
+                            <button class="random-btn" onclick="randomAdjust('brightness', -20, 20)">
+                                <i class="ri-shuffle-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><i class="ri-contrast-fill"></i> 对比度</label>
+                        <div class="range-control">
+                            <input type="range" id="contrast" min="-100" max="100" value="0" oninput="updateAdjustment()">
+                            <span id="contrast-value">0</span>
+                            <button class="random-btn" onclick="randomAdjust('contrast', -15, 15)">
+                                <i class="ri-shuffle-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><i class="ri-palette-line"></i> 饱和度</label>
+                        <div class="range-control">
+                            <input type="range" id="saturation" min="-100" max="100" value="0" oninput="updateAdjustment()">
+                            <span id="saturation-value">0</span>
+                            <button class="random-btn" onclick="randomAdjust('saturation', -25, 25)">
+                                <i class="ri-shuffle-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><i class="ri-focus-line"></i> 锐化</label>
+                        <div class="range-control">
+                            <input type="range" id="sharpen" min="0" max="100" value="0" oninput="updateAdjustment()">
+                            <span id="sharpen-value">0</span>
+                            <button class="random-btn" onclick="randomAdjust('sharpen', 0, 30)">
+                                <i class="ri-shuffle-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><i class="ri-sound-module-line"></i> 降噪</label>
+                        <div class="range-control">
+                            <input type="range" id="denoise" min="0" max="100" value="0" oninput="updateAdjustment()">
+                            <span id="denoise-value">0</span>
+                            <button class="random-btn" onclick="randomAdjust('denoise', 0, 20)">
+                                <i class="ri-shuffle-line"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="reset-btn" onclick="resetAdjustments()">
+                        <i class="ri-restart-line"></i> 重置所有调整
+                    </button>
+                </div>
+            </div>
+
+            <!-- 分屏效果 -->
+            <div class="section">
+                <h2><i class="ri-layout-grid-line"></i> 分屏效果</h2>
+                <div class="split-screen-controls">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enable-split" onchange="toggleSplitScreen()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>启用 3×3 宫格分屏</span>
+                        </label>
+                    </div>
+                    
+                    <div class="split-options" id="split-options" style="display: none;">
+                        <div class="control-group">
+                            <label><i class="ri-direction-line"></i> 滚动方向</label>
+                            <select id="split-direction">
+                                <option value="horizontal">水平滚动</option>
+                                <option value="vertical">垂直滚动</option>
+                                <option value="diagonal">对角滚动</option>
+                            </select>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="enable-blur" onchange="updateSplitScreen()">
+                                <i class="ri-checkbox-blank-line unchecked"></i>
+                                <i class="ri-checkbox-line checked"></i>
+                                <span>两端虚化效果</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分辨率设置 -->
+            <div class="section">
+                <h2><i class="ri-artboard-line"></i> 分辨率设置</h2>
+                <div class="resolution-controls">
+                    <div class="resolution-presets">
+                        <button class="preset-btn" data-width="1920" data-height="1080">1920×1080</button>
+                        <button class="preset-btn" data-width="1280" data-height="720">1280×720</button>
+                        <button class="preset-btn" data-width="854" data-height="480">854×480</button>
+                        <button class="preset-btn custom" onclick="toggleCustomResolution()">自定义</button>
+                    </div>
+                    
+                    <div class="custom-resolution" id="custom-resolution" style="display: none;">
+                        <div class="resolution-input">
+                            <input type="number" id="custom-width" placeholder="宽度" min="100" max="4096">
+                            <span>×</span>
+                            <input type="number" id="custom-height" placeholder="高度" min="100" max="4096">
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><i class="ri-aspect-ratio-line"></i> 调整模式</label>
+                        <select id="scale-mode">
+                            <option value="stretch">拉伸适应</option>
+                            <option value="crop">裁切适应</option>
+                            <option value="letterbox">添加黑边</option>
+                            <option value="pad">填充模糊</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 旋转翻转 -->
+            <div class="section">
+                <h2><i class="ri-refresh-line"></i> 旋转翻转</h2>
+                <div class="transform-controls">
+                    <div class="transform-buttons">
+                        <button class="transform-btn" data-transform="rotate-left">
+                            <i class="ri-anticlockwise-line"></i>
+                            <span>左转90°</span>
+                        </button>
+                        <button class="transform-btn" data-transform="rotate-right">
+                            <i class="ri-clockwise-line"></i>
+                            <span>右转90°</span>
+                        </button>
+                        <button class="transform-btn" data-transform="flip-h">
+                            <i class="ri-swap-line"></i>
+                            <span>水平翻转</span>
+                        </button>
+                        <button class="transform-btn" data-transform="flip-v">
+                            <i class="ri-swap-fill"></i>
+                            <span>垂直翻转</span>
+                        </button>
+                        <button class="transform-btn random" onclick="randomTransform()">
+                            <i class="ri-shuffle-line"></i>
+                            <span>随机翻转</span>
+                        </button>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="remove-black-bars" onchange="updateTransform()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>去除黑边</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：高级设置 -->
+        <div class="editor-right">
+            <!-- 帧率设置 -->
+            <div class="section">
+                <h2><i class="ri-speed-line"></i> 帧率设置</h2>
+                <div class="framerate-controls">
+                    <div class="control-group">
+                        <label>目标帧率 (FPS)</label>
+                        <div class="framerate-input">
+                            <input type="number" id="target-fps" min="12" max="120" value="30" step="0.1">
+                            <button class="random-btn" onclick="randomFramerate()">
+                                <i class="ri-shuffle-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="framerate-range">
+                        <label>随机范围</label>
+                        <div class="range-inputs">
+                            <input type="number" id="fps-min" min="12" max="120" value="24" step="0.1" placeholder="最小">
+                            <span>-</span>
+                            <input type="number" id="fps-max" min="12" max="120" value="30" step="0.1" placeholder="最大">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 抽帧设置 -->
+            <div class="section">
+                <h2><i class="ri-skip-forward-line"></i> 抽帧设置</h2>
+                <div class="frame-skip-controls">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enable-frame-skip" onchange="toggleFrameSkip()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>启用抽帧</span>
+                        </label>
+                    </div>
+                    
+                    <div class="frame-skip-options" id="frame-skip-options" style="display: none;">
+                        <div class="control-group">
+                            <label>抽帧规则</label>
+                            <div class="skip-range">
+                                <input type="number" id="skip-start" min="1" max="100" value="25" placeholder="起始帧">
+                                <span>-</span>
+                                <input type="number" id="skip-end" min="1" max="100" value="30" placeholder="结束帧">
+                                <span>抽一帧</span>
+                            </div>
+                        </div>
+                        
+                        <div class="skip-info">
+                            <i class="ri-information-line"></i>
+                            <span>每 <span id="skip-display">25-30</span> 帧抽取一帧</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 动态缩放 -->
+            <div class="section">
+                <h2><i class="ri-zoom-in-line"></i> 动态缩放</h2>
+                <div class="zoom-controls">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enable-zoom" onchange="toggleZoom()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>启用动态缩放</span>
+                        </label>
+                    </div>
+                    
+                    <div class="zoom-options" id="zoom-options" style="display: none;">
+                        <div class="control-group">
+                            <label>缩放幅度</label>
+                            <div class="zoom-range">
+                                <input type="number" id="zoom-min" min="0.01" max="1.0" value="0.01" step="0.01" placeholder="最小">
+                                <span>-</span>
+                                <input type="number" id="zoom-max" min="0.01" max="1.0" value="0.10" step="0.01" placeholder="最大">
+                            </div>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label>缩放方向</label>
+                            <select id="zoom-direction">
+                                <option value="in">放大</option>
+                                <option value="out">缩小</option>
+                                <option value="random">随机</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 码率调整 -->
+            <div class="section">
+                <h2><i class="ri-bar-chart-line"></i> 码率调整</h2>
+                <div class="bitrate-controls">
+                    <div class="bitrate-mode">
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="bitrate-mode" value="multiplier" checked>
+                                <i class="ri-radio-button-line unchecked"></i>
+                                <i class="ri-checkbox-circle-line checked"></i>
+                                <span>倍率调整</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="bitrate-mode" value="fixed">
+                                <i class="ri-radio-button-line unchecked"></i>
+                                <i class="ri-checkbox-circle-line checked"></i>
+                                <span>固定码率</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="bitrate-multiplier" id="bitrate-multiplier">
+                        <div class="control-group">
+                            <label>倍率范围</label>
+                            <div class="multiplier-range">
+                                <input type="number" id="bitrate-min" min="0.1" max="5.0" value="1.05" step="0.05" placeholder="最小">
+                                <span>-</span>
+                                <input type="number" id="bitrate-max" min="0.1" max="5.0" value="1.95" step="0.05" placeholder="最大">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bitrate-fixed" id="bitrate-fixed" style="display: none;">
+                        <div class="control-group">
+                            <label>目标码率</label>
+                            <div class="bitrate-input">
+                                <input type="number" id="fixed-bitrate" min="100" max="50000" value="3000" placeholder="码率">
+                                <span>kb/s</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="reset-btn" onclick="resetBitrate()">
+                        <i class="ri-restart-line"></i> 重置码率设置
+                    </button>
+                </div>
+            </div>
+
+            <!-- 处理按钮 -->
+            <div class="section process-section">
+                <h2><i class="ri-video-download-line"></i> 视频处理</h2>
+                <div class="process-controls">
+                    <button class="process-btn" id="process-btn" onclick="processVideo()" disabled>
+                        <i class="ri-play-circle-line"></i>
+                        <span>开始处理</span>
+                    </button>
+                    
+                    <div class="process-info">
+                        <div class="settings-summary" id="settings-summary">
+                            <h4>当前设置预览：</h4>
+                            <ul id="settings-list">
+                                <li>请先选择视频文件</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="process-status" id="process-status" style="display: none;">
+                        <div class="status-message">
+                            <i class="ri-loader-line spinning"></i>
+                            <span>正在处理视频...</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="progress-text" id="progress-text">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预设管理模态框 -->
+    <div id="preset-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="ri-save-line"></i> 预设管理</h3>
+                <button class="close-btn" onclick="closePresetModal()">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="preset-form">
+                    <h4>保存新预设</h4>
+                    <div class="form-group">
+                        <input type="text" id="preset-name" placeholder="输入预设名称">
+                        <button onclick="saveNewPreset()">保存</button>
+                    </div>
+                </div>
+                
+                <div class="preset-list">
+                    <h4>已保存的预设</h4>
+                    <div id="preset-items">
+                        <div class="empty-preset">
+                            <i class="ri-folder-open-line"></i>
+                            <p>暂无保存的预设</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/video_editor.js"></script>
+</body>
+</html> 

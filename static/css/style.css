@@ -84,6 +84,34 @@
     animation: spin 1s linear infinite;
 }
 
+.video-editor-btn {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 12px;
+    transition: all 0.3s ease;
+}
+
+.video-editor-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+}
+
+.video-editor-btn:active {
+    transform: translateY(0);
+}
+
+.video-editor-btn i {
+    font-size: 16px;
+}
+
 body {
     font-family: var(--font-family);
     line-height: 1.6;
