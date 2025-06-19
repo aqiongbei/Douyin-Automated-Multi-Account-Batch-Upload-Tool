@@ -14,8 +14,9 @@ let currentSettings = {
     denoise: 0,
     splitScreen: {
         enabled: false,
-        direction: 'horizontal',
-        blur: false
+        direction: 'vertical',  // 'vertical'=上下分屏, 'horizontal'=左右分屏, 'auto'=自动
+        ratio: 'equal',         // 'equal'=均等, 'center-large'=中间大, 'edges-large'=两端大
+        blur: false             // 边界柔化
     },
     resolution: {
         width: 'original',
@@ -200,6 +201,7 @@ function toggleSplitScreen() {
 // 更新分屏效果
 function updateSplitScreen() {
     currentSettings.splitScreen.direction = document.getElementById('split-direction').value;
+    currentSettings.splitScreen.ratio = document.getElementById('split-ratio').value;
     currentSettings.splitScreen.blur = document.getElementById('enable-blur').checked;
     updateSettingsSummary();
 }
@@ -414,9 +416,11 @@ function updateSettingsSummary() {
         }
         
         // 分屏效果
-        if (currentSettings.splitScreen.enabled) {
-            settings.push(`分屏: 3×3宫格 ${currentSettings.splitScreen.direction}滚动${currentSettings.splitScreen.blur ? ' 虚化' : ''}`);
-        }
+            if (currentSettings.splitScreen.enabled) {
+        const directionText = getSplitDirectionText(currentSettings.splitScreen.direction);
+        const ratioText = getSplitRatioText(currentSettings.splitScreen.ratio);
+        settings.push(`分屏: ${directionText} ${ratioText}${currentSettings.splitScreen.blur ? ' 柔化' : ''}`);
+    }
         
         // 分辨率
         if (currentSettings.resolution.width === 'original' && currentSettings.resolution.height === 'original') {
@@ -493,6 +497,26 @@ function getZoomDirectionText() {
         'random': '随机'
     };
     return directions[direction] || '未知';
+}
+
+// 获取分屏方向文本
+function getSplitDirectionText(direction) {
+    const directions = {
+        'vertical': '上下分屏',
+        'horizontal': '左右分屏', 
+        'auto': '自动分屏'
+    };
+    return directions[direction] || '上下分屏';
+}
+
+// 获取分屏比例文本
+function getSplitRatioText(ratio) {
+    const ratios = {
+        'equal': '均等分割',
+        'center-large': '中间放大',
+        'edges-large': '两端放大'
+    };
+    return ratios[ratio] || '均等分割';
 }
 
 // 处理视频
@@ -610,10 +634,14 @@ async function processVideo() {
                     </div>`;
             }
             
-            // 隐藏进度条，只保留结果消息
+            // 隐藏进度条和百分比文本，只保留结果消息
             const progressBar = statusDiv.querySelector('.progress-bar');
+            const progressText = statusDiv.querySelector('.progress-text');
             if (progressBar) {
                 progressBar.style.display = 'none';
+            }
+            if (progressText) {
+                progressText.style.display = 'none';
             }
             
             // 启用处理按钮，但保持状态显示
@@ -733,6 +761,7 @@ function applySettingsToUI() {
     // 分屏效果
     document.getElementById('enable-split').checked = currentSettings.splitScreen.enabled;
     document.getElementById('split-direction').value = currentSettings.splitScreen.direction;
+    document.getElementById('split-ratio').value = currentSettings.splitScreen.ratio;
     document.getElementById('enable-blur').checked = currentSettings.splitScreen.blur;
     toggleSplitScreen();
     
@@ -1062,9 +1091,12 @@ function hideProcessStatus() {
     progressFill.style.width = '0%';
     progressText.textContent = '0%';
     
-    // 重新显示进度条（为下次使用做准备）
+    // 重新显示进度条和百分比文本（为下次使用做准备）
     if (progressBar) {
         progressBar.style.display = 'block';
+    }
+    if (progressText) {
+        progressText.style.display = 'block';
     }
 }
 

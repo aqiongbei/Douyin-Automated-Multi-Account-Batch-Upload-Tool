@@ -204,17 +204,26 @@
                             <input type="checkbox" id="enable-split" onchange="toggleSplitScreen()">
                             <i class="ri-checkbox-blank-line unchecked"></i>
                             <i class="ri-checkbox-line checked"></i>
-                            <span>启用 3×3 宫格分屏</span>
+                            <span>启用宫格分屏</span>
                         </label>
                     </div>
                     
                     <div class="split-options" id="split-options" style="display: none;">
                         <div class="control-group">
-                            <label><i class="ri-direction-line"></i> 滚动方向</label>
-                            <select id="split-direction">
-                                <option value="horizontal">水平滚动</option>
-                                <option value="vertical">垂直滚动</option>
-                                <option value="diagonal">对角滚动</option>
+                            <label><i class="ri-layout-line"></i> 分屏方向</label>
+                            <select id="split-direction" onchange="updateSplitScreen()">
+                                <option value="vertical">上下（上中下）</option>
+                                <option value="horizontal">左右（左中右）</option>
+                                <option value="auto">自动选择</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label><i class="ri-grid-line"></i> 分割比例</label>
+                            <select id="split-ratio" onchange="updateSplitScreen()">
+                                <option value="equal">均等分割</option>
+                                <option value="center-large">中间放大</option>
+                                <option value="edges-large">两端放大</option>
                             </select>
                         </div>
                         
@@ -223,7 +232,7 @@
                                 <input type="checkbox" id="enable-blur" onchange="updateSplitScreen()">
                                 <i class="ri-checkbox-blank-line unchecked"></i>
                                 <i class="ri-checkbox-line checked"></i>
-                                <span>两端虚化效果</span>
+                                <span>边界柔化效果</span>
                             </label>
                         </div>
                     </div>

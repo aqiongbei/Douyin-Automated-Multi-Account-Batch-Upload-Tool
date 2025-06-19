@@ -659,12 +659,34 @@ def process_video():
                     # 确保输出目录存在
                     os.makedirs(output_dir, exist_ok=True)
                     
+                    # 处理分屏自动选择逻辑
+                    split_screen = settings.get('splitScreen', {})
+                    if split_screen.get('enabled', False) and split_screen.get('direction') == 'auto':
+                        # 获取视频信息以确定分屏方向
+                        video_info = get_video_info(input_path)
+                        if video_info:
+                            # 竖屏视频使用左右分屏，横屏视频使用上下分屏
+                            if video_info['is_portrait']:
+                                settings['splitScreen']['direction'] = 'horizontal'  # 左右分屏
+                                douyin_logger.info(f"检测到竖屏视频 ({video_info['width']}x{video_info['height']})，自动选择左右分屏")
+                            else:
+                                settings['splitScreen']['direction'] = 'vertical'    # 上下分屏
+                                douyin_logger.info(f"检测到横屏视频 ({video_info['width']}x{video_info['height']})，自动选择上下分屏")
+                        else:
+                            # 无法获取视频信息时默认使用左右分屏
+                            settings['splitScreen']['direction'] = 'horizontal'
+                            douyin_logger.warning("无法获取视频信息，默认使用左右分屏")
+                    
                     # 构建FFmpeg命令
                     ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
                     
                     # 执行FFmpeg命令
                     import subprocess
-                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                    try:
+                        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+                    except UnicodeDecodeError:
+                        # 如果UTF-8解码失败，尝试使用gbk编码
+                        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='gbk', errors='ignore')
                     
                     if result.returncode == 0:
                         # 处理成功，尝试复制对应的txt文件和图片
@@ -762,12 +784,34 @@ def process_video():
             # 确保输出目录存在
             os.makedirs(output_dir, exist_ok=True)
             
+            # 处理分屏自动选择逻辑
+            split_screen = settings.get('splitScreen', {})
+            if split_screen.get('enabled', False) and split_screen.get('direction') == 'auto':
+                # 获取视频信息以确定分屏方向
+                video_info = get_video_info(input_path)
+                if video_info:
+                    # 竖屏视频使用左右分屏，横屏视频使用上下分屏
+                    if video_info['is_portrait']:
+                        settings['splitScreen']['direction'] = 'horizontal'  # 左右分屏
+                        douyin_logger.info(f"检测到竖屏视频 ({video_info['width']}x{video_info['height']})，自动选择左右分屏")
+                    else:
+                        settings['splitScreen']['direction'] = 'vertical'    # 上下分屏
+                        douyin_logger.info(f"检测到横屏视频 ({video_info['width']}x{video_info['height']})，自动选择上下分屏")
+                else:
+                    # 无法获取视频信息时默认使用左右分屏
+                    settings['splitScreen']['direction'] = 'horizontal'
+                    douyin_logger.warning("无法获取视频信息，默认使用左右分屏")
+            
             # 构建FFmpeg命令
             ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
             
             # 执行FFmpeg命令
             import subprocess
-            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            try:
+                result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+            except UnicodeDecodeError:
+                # 如果UTF-8解码失败，尝试使用gbk编码
+                result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='gbk', errors='ignore')
             
             if result.returncode == 0:
                 return jsonify({
@@ -782,6 +826,38 @@ def process_video():
             
     except Exception as e:
         return jsonify({'error': f'处理错误: {str(e)}'}), 500
+
+def get_video_info(video_path):
+    """获取视频的基本信息（宽度、高度、时长等）"""
+    import json
+    try:
+        cmd = [
+            'ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', video_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            video_stream = None
+            for stream in data.get('streams', []):
+                if stream.get('codec_type') == 'video':
+                    video_stream = stream
+                    break
+            
+            if video_stream:
+                width = int(video_stream.get('width', 0))
+                height = int(video_stream.get('height', 0))
+                duration = float(video_stream.get('duration', 0))
+                return {
+                    'width': width,
+                    'height': height,
+                    'duration': duration,
+                    'aspect_ratio': width / height if height > 0 else 1.0,
+                    'is_portrait': height > width
+                }
+    except Exception as e:
+        douyin_logger.warning(f"获取视频信息失败: {str(e)}")
+    
+    return None
 
 def build_ffmpeg_command(input_path, output_path, settings):
     """构建FFmpeg命令"""
@@ -843,19 +919,148 @@ def build_ffmpeg_command(input_path, output_path, settings):
         if transform.get('flipV', False):
             filters.append('vflip')
     
-    # 分屏效果
+    # 分屏效果（宫格分屏）
     split_screen = settings.get('splitScreen', {})
     if split_screen.get('enabled', False):
-        direction = split_screen.get('direction', 'horizontal')
+        direction = split_screen.get('direction', 'vertical')  # vertical=上下, horizontal=左右, auto=自动
+        ratio = split_screen.get('ratio', 'equal')  # equal=均等, center-large=中间大, edges-large=两端大
         blur = split_screen.get('blur', False)
         
-        if direction == 'horizontal':
-            filters.append('scale=iw/3:ih/3,tile=3x3')
-        elif direction == 'vertical':
-            filters.append('scale=iw/3:ih/3,tile=3x3')
+        # 根据分屏方向和比例构建滤镜
+        if direction == 'vertical':  # 上下分屏：复制视频3份垂直排列，上方显示上半部分，中间显示完整，下方显示下半部分
+            if ratio == 'equal':
+                # 均等分割：三个视频等高度
+                if blur:
+                    # 有边界柔化：虚化上方和下方的视频
+                    filters.extend([
+                        '[0:v]crop=iw:ih/2:0:0,scale=iw:ih/3,boxblur=2:1[top]',    # 上半部分，缩放并虚化
+                        '[0:v]scale=iw:ih/3[middle]',                              # 完整视频，缩放到1/3高度
+                        '[0:v]crop=iw:ih/2:0:ih/2,scale=iw:ih/3,boxblur=2:1[bottom]', # 下半部分，缩放并虚化
+                        '[top][middle][bottom]vstack=inputs=3[out]'                 # 垂直拼接三个部分
+                    ])
+                else:
+                    # 无边界柔化
+                    filters.extend([
+                        '[0:v]crop=iw:ih/2:0:0,scale=iw:ih/3[top]',        # 上半部分，缩放到1/3高度
+                        '[0:v]scale=iw:ih/3[middle]',                      # 完整视频，缩放到1/3高度
+                        '[0:v]crop=iw:ih/2:0:ih/2,scale=iw:ih/3[bottom]',  # 下半部分，缩放到1/3高度
+                        '[top][middle][bottom]vstack=inputs=3[out]'         # 垂直拼接三个部分
+                    ])
+            elif ratio == 'center-large':
+                # 中间放大：上下各1/4高度，中间1/2高度
+                if blur:
+                    # 有边界柔化：虚化上方和下方的视频
+                    filters.extend([
+                        '[0:v]crop=iw:ih/2:0:0,scale=iw:ih/4,boxblur=2:1[top]',    # 上半部分，缩放并虚化
+                        '[0:v]scale=iw:ih/2[middle]',                              # 完整视频，缩放到1/2高度
+                        '[0:v]crop=iw:ih/2:0:ih/2,scale=iw:ih/4,boxblur=2:1[bottom]', # 下半部分，缩放并虚化
+                        '[top][middle][bottom]vstack=inputs=3[out]'                 # 垂直拼接三个部分
+                    ])
+                else:
+                    # 无边界柔化
+                    filters.extend([
+                        '[0:v]crop=iw:ih/2:0:0,scale=iw:ih/4[top]',        # 上半部分，缩放到1/4高度
+                        '[0:v]scale=iw:ih/2[middle]',                      # 完整视频，缩放到1/2高度
+                        '[0:v]crop=iw:ih/2:0:ih/2,scale=iw:ih/4[bottom]',  # 下半部分，缩放到1/4高度
+                        '[top][middle][bottom]vstack=inputs=3[out]'         # 垂直拼接三个部分
+                    ])
+            elif ratio == 'edges-large':
+                # 两端放大：上下各3/8高度，中间1/4高度
+                if blur:
+                    # 有边界柔化：虚化上方和下方的视频
+                    filters.extend([
+                        '[0:v]crop=iw:ih/2:0:0,scale=iw:3*ih/8,boxblur=2:1[top]',    # 上半部分，缩放并虚化
+                        '[0:v]scale=iw:ih/4[middle]',                               # 完整视频，缩放到1/4高度
+                        '[0:v]crop=iw:ih/2:0:ih/2,scale=iw:3*ih/8,boxblur=2:1[bottom]', # 下半部分，缩放并虚化
+                        '[top][middle][bottom]vstack=inputs=3[out]'                  # 垂直拼接三个部分
+                    ])
+                else:
+                    # 无边界柔化
+                    filters.extend([
+                        '[0:v]crop=iw:ih/2:0:0,scale=iw:3*ih/8[top]',       # 上半部分，缩放到3/8高度
+                        '[0:v]scale=iw:ih/4[middle]',                       # 完整视频，缩放到1/4高度
+                        '[0:v]crop=iw:ih/2:0:ih/2,scale=iw:3*ih/8[bottom]', # 下半部分，缩放到3/8高度
+                        '[top][middle][bottom]vstack=inputs=3[out]'          # 垂直拼接三个部分
+                    ])
+                
+        elif direction == 'horizontal':  # 左右分屏：复制视频3份水平排列，左侧显示左半部分，中间显示完整，右侧显示右半部分
+            if ratio == 'equal':
+                # 均等分割：三个视频等宽度
+                if blur:
+                    # 有边界柔化：虚化左侧和右侧的视频
+                    filters.extend([
+                        '[0:v]crop=iw/2:ih:0:0,scale=iw/3:ih,boxblur=2:1[left]',     # 左半部分，缩放并虚化
+                        '[0:v]scale=iw/3:ih[middle]',                               # 完整视频，缩放到1/3宽度
+                        '[0:v]crop=iw/2:ih:iw/2:0,scale=iw/3:ih,boxblur=2:1[right]', # 右半部分，缩放并虚化
+                        '[left][middle][right]hstack=inputs=3[out]'                  # 水平拼接三个部分
+                    ])
+                else:
+                    # 无边界柔化
+                    filters.extend([
+                        '[0:v]crop=iw/2:ih:0:0,scale=iw/3:ih[left]',       # 左半部分，缩放到1/3宽度
+                        '[0:v]scale=iw/3:ih[middle]',                      # 完整视频，缩放到1/3宽度
+                        '[0:v]crop=iw/2:ih:iw/2:0,scale=iw/3:ih[right]',   # 右半部分，缩放到1/3宽度
+                        '[left][middle][right]hstack=inputs=3[out]'         # 水平拼接三个部分
+                    ])
+            elif ratio == 'center-large':
+                # 中间放大：左右各1/4宽度，中间1/2宽度
+                if blur:
+                    # 有边界柔化：虚化左侧和右侧的视频
+                    filters.extend([
+                        '[0:v]crop=iw/2:ih:0:0,scale=iw/4:ih,boxblur=2:1[left]',     # 左半部分，缩放并虚化
+                        '[0:v]scale=iw/2:ih[middle]',                               # 完整视频，缩放到1/2宽度
+                        '[0:v]crop=iw/2:ih:iw/2:0,scale=iw/4:ih,boxblur=2:1[right]', # 右半部分，缩放并虚化
+                        '[left][middle][right]hstack=inputs=3[out]'                  # 水平拼接三个部分
+                    ])
+                else:
+                    # 无边界柔化
+                    filters.extend([
+                        '[0:v]crop=iw/2:ih:0:0,scale=iw/4:ih[left]',       # 左半部分，缩放到1/4宽度
+                        '[0:v]scale=iw/2:ih[middle]',                      # 完整视频，缩放到1/2宽度
+                        '[0:v]crop=iw/2:ih:iw/2:0,scale=iw/4:ih[right]',   # 右半部分，缩放到1/4宽度
+                        '[left][middle][right]hstack=inputs=3[out]'         # 水平拼接三个部分
+                    ])
+            elif ratio == 'edges-large':
+                # 两端放大：左右各3/8宽度，中间1/4宽度
+                if blur:
+                    # 有边界柔化：虚化左侧和右侧的视频
+                    filters.extend([
+                        '[0:v]crop=iw/2:ih:0:0,scale=3*iw/8:ih,boxblur=2:1[left]',   # 左半部分，缩放并虚化
+                        '[0:v]scale=iw/4:ih[middle]',                               # 完整视频，缩放到1/4宽度
+                        '[0:v]crop=iw/2:ih:iw/2:0,scale=3*iw/8:ih,boxblur=2:1[right]', # 右半部分，缩放并虚化
+                        '[left][middle][right]hstack=inputs=3[out]'                  # 水平拼接三个部分
+                    ])
+                else:
+                    # 无边界柔化
+                    filters.extend([
+                        '[0:v]crop=iw/2:ih:0:0,scale=3*iw/8:ih[left]',     # 左半部分，缩放到3/8宽度
+                        '[0:v]scale=iw/4:ih[middle]',                      # 完整视频，缩放到1/4宽度
+                        '[0:v]crop=iw/2:ih:iw/2:0,scale=3*iw/8:ih[right]', # 右半部分，缩放到3/8宽度
+                        '[left][middle][right]hstack=inputs=3[out]'         # 水平拼接三个部分
+                    ])
+                
+        elif direction == 'auto':
+            # 自动选择：需要先获取视频的宽高比来决定分屏方向
+            # 由于这需要在外部获取视频信息，这里暂时默认为竖屏分屏
+            # 实际的自动选择逻辑应该在调用此函数之前处理
+            if blur:
+                # 有边界柔化：虚化左侧和右侧的视频（竖屏默认用左右分屏）
+                filters.extend([
+                    '[0:v]crop=iw/2:ih:0:0,scale=iw/3:ih,boxblur=2:1[left]',     # 左半部分，缩放并虚化
+                    '[0:v]scale=iw/3:ih[middle]',                               # 完整视频，缩放到1/3宽度
+                    '[0:v]crop=iw/2:ih:iw/2:0,scale=iw/3:ih,boxblur=2:1[right]', # 右半部分，缩放并虚化
+                    '[left][middle][right]hstack=inputs=3[out]'                  # 水平拼接三个部分
+                ])
+            else:
+                # 无边界柔化（竖屏默认用左右分屏）
+                filters.extend([
+                    '[0:v]crop=iw/2:ih:0:0,scale=iw/3:ih[left]',       # 左半部分，缩放到1/3宽度
+                    '[0:v]scale=iw/3:ih[middle]',                      # 完整视频，缩放到1/3宽度
+                    '[0:v]crop=iw/2:ih:iw/2:0,scale=iw/3:ih[right]',   # 右半部分，缩放到1/3宽度
+                    '[left][middle][right]hstack=inputs=3[out]'         # 水平拼接三个部分
+                ])
         
-        if blur:
-            filters.append('boxblur=5:1')
+        # 边界柔化效果已经在分屏滤镜中直接处理
     
     # 动态缩放
     zoom = settings.get('zoom', {})
@@ -869,23 +1074,32 @@ def build_ffmpeg_command(input_path, output_path, settings):
         elif direction == 'out':
             filters.append(f'zoompan=z=\'max(zoom-{zoom_max},1)\':d=1:x=iw/2-(iw/zoom/2):y=ih/2-(ih/zoom/2)')
     
+    # 抽帧设置 - 需要在分屏滤镜之前处理
+    frame_skip = settings.get('frameSkip', {})
+    if frame_skip.get('enabled', False):
+        skip_start = frame_skip.get('start', 25)
+        skip_end = frame_skip.get('end', 30)
+        # 抽帧滤镜需要加到最前面
+        filters.insert(0, f'select=not(mod(n\\,{skip_start}))')
+    
     # 应用滤镜
     if filters:
-        cmd.extend(['-vf', ','.join(filters)])
+        # 检查是否有分屏滤镜，如果有则使用-filter_complex
+        filter_string = ','.join(filters)
+        has_split_screen = any('hstack' in f or 'vstack' in f for f in filters)
+        
+        if has_split_screen:
+            # 有分屏滤镜，使用-filter_complex，需要指定输出流
+            cmd.extend(['-filter_complex', filter_string, '-map', '[out]'])
+        else:
+            # 普通滤镜，使用-vf
+            cmd.extend(['-vf', filter_string])
     
     # 帧率设置
     framerate = settings.get('framerate', {})
     if not framerate.get('keep_original', False):
         target_fps = framerate.get('target', 30)
         cmd.extend(['-r', str(target_fps)])
-    
-    # 抽帧设置
-    frame_skip = settings.get('frameSkip', {})
-    if frame_skip.get('enabled', False):
-        skip_start = frame_skip.get('start', 25)
-        skip_end = frame_skip.get('end', 30)
-        # 简化抽帧实现：每N帧取一帧
-        cmd.extend(['-vf', f'select=not(mod(n\\,{skip_start}))'])
     
     # 码率设置
     bitrate = settings.get('bitrate', {})
