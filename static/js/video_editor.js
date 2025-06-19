@@ -610,6 +610,12 @@ async function processVideo() {
                     </div>`;
             }
             
+            // 隐藏进度条，只保留结果消息
+            const progressBar = statusDiv.querySelector('.progress-bar');
+            if (progressBar) {
+                progressBar.style.display = 'none';
+            }
+            
             // 启用处理按钮，但保持状态显示
             document.getElementById('process-btn').disabled = false;
             
@@ -1050,10 +1056,16 @@ function hideProcessStatus() {
     const statusDiv = document.getElementById('progress-section');
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
+    const progressBar = statusDiv.querySelector('.progress-bar');
     
     statusDiv.style.display = 'none';
     progressFill.style.width = '0%';
     progressText.textContent = '0%';
+    
+    // 重新显示进度条（为下次使用做准备）
+    if (progressBar) {
+        progressBar.style.display = 'block';
+    }
 }
 
 // 全选视频文件
