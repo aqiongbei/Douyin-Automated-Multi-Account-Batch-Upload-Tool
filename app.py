@@ -617,6 +617,140 @@ def get_folder_videos_api(folder_name):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/video/upload_b_video', methods=['POST'])
+def upload_b_video():
+    """上传B视频文件"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': '没有选择文件'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': '没有选择文件'}), 400
+        
+        # 检查文件类型
+        allowed_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv'}
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if file_extension not in allowed_extensions:
+            return jsonify({'error': '不支持的文件格式'}), 400
+        
+        # 保存B视频文件
+        b_videos_dir = os.path.join('static', 'b_videos')
+        os.makedirs(b_videos_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        safe_filename = f"b_video_{timestamp}{file_extension}"
+        file_path = os.path.join(b_videos_dir, safe_filename)
+        
+        file.save(file_path)
+        
+        # 获取视频信息
+        video_info = get_video_info(file_path)
+        
+        return jsonify({
+            'success': True,
+            'file_path': file_path,
+            'filename': safe_filename,
+            'video_info': video_info
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'上传失败: {str(e)}'}), 500
+
+@app.route('/api/video/builtin_materials', methods=['GET'])
+def get_builtin_materials():
+    """获取内置素材库列表"""
+    try:
+        materials_dir = os.path.join('static', 'builtin_materials')
+        materials = []
+        
+        if os.path.exists(materials_dir):
+            for filename in os.listdir(materials_dir):
+                if filename.lower().endswith(('.mp4', '.avi', '.mov')):
+                    file_path = os.path.join(materials_dir, filename)
+                    video_info = get_video_info(file_path)
+                    materials.append({
+                        'id': os.path.splitext(filename)[0],
+                        'name': filename,
+                        'path': file_path,
+                        'info': video_info
+                    })
+        
+        return jsonify({'materials': materials})
+        
+    except Exception as e:
+        return jsonify({'error': f'获取素材库失败: {str(e)}'}), 500
+
+@app.route('/api/video/generate_b_video', methods=['POST'])
+def generate_b_video():
+    """AI生成B视频"""
+    try:
+        data = request.get_json()
+        generate_type = data.get('type', 'nature')
+        duration = data.get('duration', 10)  # 默认10秒
+        
+        # 生成视频的目录
+        generated_dir = os.path.join('static', 'generated_videos')
+        os.makedirs(generated_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_filename = f"generated_{generate_type}_{timestamp}.mp4"
+        output_path = os.path.join(generated_dir, output_filename)
+        
+        # 根据类型生成不同的FFmpeg命令
+        if generate_type == 'nature':
+            # 生成自然场景（使用testsrc2产生自然色彩）
+            cmd = [
+                'ffmpeg', '-f', 'lavfi', 
+                '-i', f'testsrc2=duration={duration}:size=1920x1080:rate=25',
+                '-f', 'lavfi', '-i', 'sine=frequency=220:duration=' + str(duration),
+                '-vf', 'hue=s=0.8,eq=contrast=1.2:brightness=0.1,gblur=sigma=0.5',
+                '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output_path
+            ]
+        elif generate_type == 'abstract':
+            # 生成抽象图案
+            cmd = [
+                'ffmpeg', '-f', 'lavfi',
+                '-i', f'mandelbrot=size=1920x1080:rate=25:maxiter=100:outer=sierpinski:inner=manowar:bailout=10:duration={duration}',
+                '-f', 'lavfi', '-i', 'sine=frequency=440:duration=' + str(duration),
+                '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output_path
+            ]
+        elif generate_type == 'noise':
+            # 生成随机噪声
+            cmd = [
+                'ffmpeg', '-f', 'lavfi',
+                '-i', f'noise=alls=1:allf=t:duration={duration}:size=1920x1080:rate=25',
+                '-f', 'lavfi', '-i', 'anoisesrc=duration=' + str(duration),
+                '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output_path
+            ]
+        elif generate_type == 'gradient':
+            # 生成渐变背景
+            cmd = [
+                'ffmpeg', '-f', 'lavfi',
+                '-i', f'gradients=size=1920x1080:rate=25:duration={duration}:speed=0.01',
+                '-f', 'lavfi', '-i', 'sine=frequency=330:duration=' + str(duration),
+                '-c:v', 'libx264', '-c:a', 'aac', '-shortest', output_path
+            ]
+        
+        # 执行FFmpeg命令
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+        
+        if result.returncode == 0:
+            video_info = get_video_info(output_path)
+            return jsonify({
+                'success': True,
+                'file_path': output_path,
+                'filename': output_filename,
+                'video_info': video_info
+            })
+        else:
+            return jsonify({
+                'error': f'生成视频失败: {result.stderr}'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'生成视频失败: {str(e)}'}), 500
+
 @app.route('/api/video/process', methods=['POST'])
 def process_video():
     """处理视频编辑请求"""
@@ -646,6 +780,7 @@ def process_video():
                 try:
                     # 从downloads文件夹获取视频
                     input_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
+                    input_path = os.path.normpath(input_path)  # 规范化输入路径
                     if not os.path.exists(input_path):
                         failed_files.append(f'{video_filename}: 文件不存在')
                         continue
@@ -658,6 +793,9 @@ def process_video():
                     
                     # 确保输出目录存在
                     os.makedirs(output_dir, exist_ok=True)
+                    
+                    # 规范化路径格式，解决中文路径问题
+                    output_path = os.path.normpath(output_path)
                     
                     # 处理分屏自动选择逻辑
                     split_screen = settings.get('splitScreen', {})
@@ -680,6 +818,9 @@ def process_video():
                     # 构建FFmpeg命令
                     ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
                     
+                    # 打印FFmpeg命令以便调试
+                    douyin_logger.info(f"执行FFmpeg命令: {' '.join(ffmpeg_cmd)}")
+                    
                     # 执行FFmpeg命令
                     import subprocess
                     try:
@@ -687,6 +828,13 @@ def process_video():
                     except UnicodeDecodeError:
                         # 如果UTF-8解码失败，尝试使用gbk编码
                         result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='gbk', errors='ignore')
+                    
+                    # 打印FFmpeg执行结果
+                    if result.stdout:
+                        douyin_logger.info(f"FFmpeg输出: {result.stdout}")
+                    if result.stderr:
+                        douyin_logger.error(f"FFmpeg错误: {result.stderr}")
+                    douyin_logger.info(f"FFmpeg返回码: {result.returncode}")
                     
                     if result.returncode == 0:
                         # 处理成功，尝试复制对应的txt文件和图片
@@ -784,6 +932,9 @@ def process_video():
             # 确保输出目录存在
             os.makedirs(output_dir, exist_ok=True)
             
+            # 规范化路径格式，解决中文路径问题
+            output_path = os.path.normpath(output_path)
+            
             # 处理分屏自动选择逻辑
             split_screen = settings.get('splitScreen', {})
             if split_screen.get('enabled', False) and split_screen.get('direction') == 'auto':
@@ -805,6 +956,9 @@ def process_video():
             # 构建FFmpeg命令
             ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
             
+            # 打印FFmpeg命令以便调试
+            douyin_logger.info(f"执行FFmpeg命令: {' '.join(ffmpeg_cmd)}")
+            
             # 执行FFmpeg命令
             import subprocess
             try:
@@ -812,6 +966,13 @@ def process_video():
             except UnicodeDecodeError:
                 # 如果UTF-8解码失败，尝试使用gbk编码
                 result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='gbk', errors='ignore')
+            
+            # 打印FFmpeg执行结果
+            if result.stdout:
+                douyin_logger.info(f"FFmpeg输出: {result.stdout}")
+            if result.stderr:
+                douyin_logger.error(f"FFmpeg错误: {result.stderr}")
+            douyin_logger.info(f"FFmpeg返回码: {result.returncode}")
             
             if result.returncode == 0:
                 return jsonify({
@@ -861,10 +1022,44 @@ def get_video_info(video_path):
 
 def build_ffmpeg_command(input_path, output_path, settings):
     """构建FFmpeg命令"""
-    cmd = ['ffmpeg', '-i', input_path]
+    # 规范化路径格式，确保FFmpeg能正确处理包含中文的路径
+    input_path = os.path.normpath(input_path)
+    output_path = os.path.normpath(output_path)
+    
+    # 基础命令，稍后会根据AB帧融合添加更多输入
+    cmd = ['ffmpeg']
+    
+    # 添加主输入文件
+    cmd.extend(['-i', input_path])
+    
+    # 检查AB帧融合是否需要额外的B视频输入
+    ab_fusion = settings.get('abFusion', {})
+    has_b_video = False
+    b_video_path = None
+    
+    if ab_fusion.get('enabled', False):
+        b_video_source = ab_fusion.get('bVideoSource', 'upload')
+        builtin_material = ab_fusion.get('builtinMaterial', '')
+        b_video_path = ab_fusion.get('bVideoPath')
+        
+        # 处理内置素材的路径
+        if b_video_source == 'builtin' and builtin_material:
+            b_video_path = builtin_material
+        
+        # 规范化B视频路径
+        if b_video_path:
+            b_video_path = os.path.normpath(b_video_path)
+            if os.path.exists(b_video_path):
+                cmd.extend(['-i', b_video_path])
+                has_b_video = True
+                douyin_logger.info(f"✅ 添加B视频输入: {b_video_path}")
+            else:
+                douyin_logger.warning(f"❌ B视频文件不存在: {b_video_path}")
     
     # 视频滤镜
     filters = []
+    # 音频滤镜
+    audio_filters = []
     
     # 画面调整
     if settings.get('brightness', 0) != 0 or settings.get('contrast', 0) != 0 or settings.get('saturation', 0) != 0:
@@ -1062,6 +1257,103 @@ def build_ffmpeg_command(input_path, output_path, settings):
         
         # 边界柔化效果已经在分屏滤镜中直接处理
     
+    # AB帧融合效果
+    if ab_fusion.get('enabled', False):
+        douyin_logger.info("🎬 AB帧融合已启用")
+        method = ab_fusion.get('method', 'transparency')
+        
+        douyin_logger.info(f"融合方法: {method}")
+        douyin_logger.info(f"B视频源类型: {ab_fusion.get('bVideoSource', 'upload')}")
+        douyin_logger.info(f"内置素材: {ab_fusion.get('builtinMaterial', '')}")
+        
+        if has_b_video:
+            douyin_logger.info("✅ B视频文件存在，开始应用AB帧融合")
+            
+            if method == 'transparency':
+                # 透明度混合法
+                opacity = ab_fusion.get('opacity', 0.35)
+                adaptive = ab_fusion.get('adaptiveOpacity', False)
+                
+                douyin_logger.info(f"透明度混合 - 透明度: {opacity*100:.1f}%, 自适应: {adaptive}")
+                
+                # 修复滤镜语法：确保两个视频尺寸一致
+                if adaptive:
+                    # 自适应透明度：根据场景亮度调整（简化实现）
+                    fusion_filter = f'[1:v]scale=iw:ih[scaled];[scaled]format=yuva420p[formatted];[formatted]lut=a=val*{opacity}[overlay];[0:v][overlay]overlay=0:0'
+                else:
+                    # 固定透明度 - 先将B视频缩放到与主视频相同尺寸，然后blend
+                    fusion_filter = f'[0:v][1:v]scale2ref[main][ref];[main][ref]blend=all_mode=overlay:all_opacity={opacity}'
+                
+                filters.append(fusion_filter)
+                douyin_logger.info(f"添加透明度混合滤镜: {fusion_filter}")
+                
+            elif method == 'region':
+                # 区域替换法
+                region = ab_fusion.get('region', 'corners')
+                ratio = ab_fusion.get('regionRatio', 0.25)
+                
+                douyin_logger.info(f"区域替换 - 区域: {region}, 比例: {ratio*100:.1f}%")
+                
+                if region == 'corners':
+                    # 四角区域替换（简化为左上角区域）
+                    corner_size = f'iw*{ratio}:ih*{ratio}'
+                    fusion_filter = f'[1:v]scale={corner_size}[corner];[0:v][corner]overlay=0:0'
+                elif region == 'edges':
+                    # 边缘区域替换（左边缘）
+                    edge_size = f'iw*{ratio}:ih'
+                    fusion_filter = f'[1:v]scale={edge_size}[edges];[0:v][edges]overlay=0:0'
+                elif region == 'center':
+                    # 中心区域替换
+                    center_size = f'iw*{ratio}:ih*{ratio}'
+                    fusion_filter = f'[1:v]scale={center_size}[center];[0:v][center]overlay=(W-w)/2:(H-h)/2'
+                
+                filters.append(fusion_filter)
+                douyin_logger.info(f"添加区域替换滤镜: {fusion_filter}")
+                
+            elif method == 'dynamic':
+                # 动态混合策略
+                cycle = ab_fusion.get('cycle', 5)
+                opacity_min = ab_fusion.get('opacityMin', 0.2)
+                opacity_max = ab_fusion.get('opacityMax', 0.5)
+                
+                douyin_logger.info(f"动态混合 - 周期: {cycle}秒, 透明度范围: {opacity_min*100:.1f}%-{opacity_max*100:.1f}%")
+                
+                # 创建动态透明度表达式（简化实现）
+                mid_opacity = (opacity_min + opacity_max) / 2
+                fusion_filter = f'[1:v]scale=iw:ih,format=yuva420p,lut=a=val*{mid_opacity}[overlay];[0:v][overlay]overlay'
+                filters.append(fusion_filter)
+                douyin_logger.info(f"添加动态混合滤镜: {fusion_filter}")
+        else:
+            douyin_logger.warning("❌ AB帧融合已启用但B视频文件不可用")
+        
+        # 元数据伪装
+        if ab_fusion.get('metadataDisguise', False):
+            # 添加自定义元数据来改变文件指纹
+            import time
+            timestamp = int(time.time())
+            cmd.extend([
+                '-metadata', f'title=Processed_Video_{timestamp}',
+                '-metadata', f'comment=Generated_at_{timestamp}',
+                '-metadata', f'description=Edited_content_{timestamp}',
+                '-metadata:s:v:0', 'handler_name=VideoHandler_Modified',
+                '-metadata:s:a:0', 'handler_name=SoundHandler_Modified'
+            ])
+            douyin_logger.info("🏷️  元数据伪装已启用")
+        
+        # 音频相位调整 - 使用正确的参数格式
+        if ab_fusion.get('audioPhaseAdjust', False):
+            # 使用aeval滤镜来实现音频相位调整，这是一个更兼容的方法
+            audio_filters.append('aeval=val(0)*0.9+val(1)*0.1:c=same')
+            douyin_logger.info("🎵 音频相位调整已启用")
+            
+        # 关键帧分布修改
+        if ab_fusion.get('keyframeModify', False):
+            # 修改关键帧间隔来改变指纹
+            cmd.extend(['-g', '25', '-keyint_min', '12'])
+            douyin_logger.info("🔑 关键帧分布修改已启用")
+    else:
+        douyin_logger.info("AB帧融合未启用")
+    
     # 动态缩放
     zoom = settings.get('zoom', {})
     if zoom.get('enabled', False):
@@ -1084,16 +1376,35 @@ def build_ffmpeg_command(input_path, output_path, settings):
     
     # 应用滤镜
     if filters:
-        # 检查是否有分屏滤镜，如果有则使用-filter_complex
+        # 检查是否需要使用-filter_complex
         filter_string = ','.join(filters)
         has_split_screen = any('hstack' in f or 'vstack' in f for f in filters)
+        has_ab_fusion = has_b_video and ab_fusion.get('enabled', False)  # 直接使用AB帧融合状态
+        has_complex_filter = any('[0:v]' in f and '[1:v]' in f for f in filters) or any('blend=' in f for f in filters)
         
-        if has_split_screen:
-            # 有分屏滤镜，使用-filter_complex，需要指定输出流
-            cmd.extend(['-filter_complex', filter_string, '-map', '[out]'])
+        douyin_logger.info(f"滤镜字符串: {filter_string}")
+        douyin_logger.info(f"检测到分屏: {has_split_screen}")
+        douyin_logger.info(f"检测到AB帧融合: {has_ab_fusion}")
+        douyin_logger.info(f"检测到复杂滤镜: {has_complex_filter}")
+        
+        if has_split_screen or has_ab_fusion or has_complex_filter:
+            # 有分屏滤镜或AB帧融合，使用-filter_complex
+            douyin_logger.info("使用 -filter_complex 参数")
+            if has_split_screen:
+                # 分屏滤镜需要指定输出流为[out]
+                cmd.extend(['-filter_complex', filter_string, '-map', '[out]'])
+            else:
+                # AB帧融合等其他复杂滤镜
+                cmd.extend(['-filter_complex', filter_string])
         else:
             # 普通滤镜，使用-vf
+            douyin_logger.info("使用 -vf 参数")
             cmd.extend(['-vf', filter_string])
+    
+    # 应用音频滤镜
+    if audio_filters:
+        audio_filter_string = ','.join(audio_filters)
+        cmd.extend(['-af', audio_filter_string])
     
     # 帧率设置
     framerate = settings.get('framerate', {})

@@ -53,6 +53,24 @@ let currentSettings = {
         min: 1.05,
         max: 1.95,
         fixed: 3000
+    },
+    abFusion: {
+        enabled: false,
+        method: 'transparency',
+        bVideoPath: null,
+        bVideoSource: 'upload',
+        opacity: 0.35,
+        adaptiveOpacity: false,
+        region: 'corners',
+        regionRatio: 0.25,
+        cycle: 5,
+        opacityMin: 0.2,
+        opacityMax: 0.5,
+        metadataDisguise: false,
+        audioPhaseAdjust: false,
+        keyframeModify: false,
+        builtinMaterial: '',
+        aiGenerateType: 'nature'
     }
 };
 
@@ -421,6 +439,35 @@ function updateSettingsSummary() {
         const ratioText = getSplitRatioText(currentSettings.splitScreen.ratio);
         settings.push(`分屏: ${directionText} ${ratioText}${currentSettings.splitScreen.blur ? ' 柔化' : ''}`);
     }
+    
+    // AB帧融合
+    if (currentSettings.abFusion.enabled) {
+        let fusionText = 'AB融合: ';
+        
+        switch(currentSettings.abFusion.method) {
+            case 'transparency':
+                fusionText += `透明度混合 ${Math.round(currentSettings.abFusion.opacity * 100)}%`;
+                if (currentSettings.abFusion.adaptiveOpacity) fusionText += ' 自适应';
+                break;
+            case 'region':
+                const regionMap = {
+                    'corners': '四角',
+                    'edges': '边缘', 
+                    'center': '中心'
+                };
+                fusionText += `区域替换 ${regionMap[currentSettings.abFusion.region]} ${Math.round(currentSettings.abFusion.regionRatio * 100)}%`;
+                break;
+            case 'dynamic':
+                fusionText += `动态混合 ${currentSettings.abFusion.cycle}秒周期`;
+                break;
+        }
+        
+        if (currentSettings.abFusion.bVideoPath) {
+            fusionText += ' ✓B视频';
+        }
+        
+        settings.push(fusionText);
+    }
         
         // 分辨率
         if (currentSettings.resolution.width === 'original' && currentSettings.resolution.height === 'original') {
@@ -570,6 +617,9 @@ async function processVideo() {
                 video_filenames: selectedVideoNames, // 支持多个文件
                 settings: currentSettings
             };
+            
+            // 调试：打印AB帧融合设置
+            console.log('发送到后端的AB帧融合设置:', currentSettings.abFusion);
             
             response = await fetch('/api/video/process', {
                 method: 'POST',
@@ -1153,4 +1203,273 @@ function updateSelectedCount() {
         selectAllBtn.style.color = 'var(--text-primary)';
         selectAllBtn.style.borderColor = 'var(--border-color)';
     }
+}
+
+// ======================
+// AB帧融合相关功能
+// ======================
+
+// 切换AB帧融合
+function toggleABFusion() {
+    const enabled = document.getElementById('enable-ab-fusion').checked;
+    currentSettings.abFusion.enabled = enabled;
+    document.getElementById('ab-fusion-options').style.display = enabled ? 'block' : 'none';
+    updateSettingsSummary();
+}
+
+// 切换B视频源类型
+function toggleBVideoSource() {
+    const source = document.getElementById('b-video-source').value;
+    currentSettings.abFusion.bVideoSource = source;
+    
+    // 重置B视频路径（因为切换了源类型）
+    currentSettings.abFusion.bVideoPath = null;
+    
+    // 隐藏所有选项
+    document.getElementById('b-video-upload-section').style.display = 'none';
+    document.getElementById('builtin-materials-section').style.display = 'none';
+    document.getElementById('ai-generate-section').style.display = 'none';
+    
+    // 显示选中的选项
+    if (source === 'upload') {
+        document.getElementById('b-video-upload-section').style.display = 'block';
+    } else if (source === 'builtin') {
+        document.getElementById('builtin-materials-section').style.display = 'block';
+        loadBuiltinMaterials();
+    } else if (source === 'generate') {
+        document.getElementById('ai-generate-section').style.display = 'block';
+    }
+    
+    updateABFusion();
+}
+
+// 处理B视频文件选择
+function handleBVideoSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // 创建FormData上传文件
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // 显示上传状态
+    const statusDiv = document.getElementById('selected-b-video');
+    statusDiv.style.display = 'block';
+    document.getElementById('b-video-name').textContent = '上传中...';
+    
+    fetch('/api/video/upload_b_video', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentSettings.abFusion.bVideoPath = data.file_path;
+            document.getElementById('b-video-name').textContent = data.filename;
+            updateABFusion();
+        } else {
+            alert('B视频上传失败: ' + data.error);
+            removeBVideo();
+        }
+    })
+    .catch(error => {
+        alert('B视频上传失败: ' + error.message);
+        removeBVideo();
+    });
+}
+
+// 移除B视频
+function removeBVideo() {
+    currentSettings.abFusion.bVideoPath = null;
+    document.getElementById('selected-b-video').style.display = 'none';
+    document.getElementById('b-video-file').value = '';
+    updateABFusion();
+}
+
+// 加载内置素材库
+function loadBuiltinMaterials() {
+    fetch('/api/video/builtin_materials')
+    .then(response => response.json())
+    .then(data => {
+        const select = document.getElementById('builtin-material');
+        select.innerHTML = '<option value="">选择内置素材</option>';
+        
+        if (data.materials) {
+            data.materials.forEach(material => {
+                const option = document.createElement('option');
+                option.value = material.path;
+                option.textContent = material.name;
+                select.appendChild(option);
+            });
+        }
+    })
+    .catch(error => {
+        console.error('加载内置素材失败:', error);
+    });
+}
+
+// 生成B视频
+function generateBVideo() {
+    const type = document.getElementById('ai-generate-type').value;
+    const duration = 10; // 默认10秒
+    
+    // 显示生成状态
+    const button = document.querySelector('.generate-btn');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="ri-loader-4-line"></i> 生成中...';
+    button.disabled = true;
+    
+    fetch('/api/video/generate_b_video', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: type,
+            duration: duration
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentSettings.abFusion.bVideoPath = data.file_path;
+            alert('B视频生成成功: ' + data.filename);
+            updateABFusion();
+        } else {
+            alert('B视频生成失败: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('B视频生成失败: ' + error.message);
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// 更新AB帧融合设置
+function updateABFusion() {
+    if (!currentSettings.abFusion.enabled) return;
+    
+    // 根据不同的B视频源类型设置路径
+    if (currentSettings.abFusion.bVideoSource === 'builtin') {
+        // 内置素材
+        const builtinMaterial = document.getElementById('builtin-material').value;
+        console.log('内置素材选择值:', builtinMaterial); // 调试日志
+        if (builtinMaterial) {
+            currentSettings.abFusion.bVideoPath = builtinMaterial;
+            currentSettings.abFusion.builtinMaterial = builtinMaterial;
+            console.log('设置内置素材路径:', builtinMaterial); // 调试日志
+        } else {
+            currentSettings.abFusion.bVideoPath = null;
+            currentSettings.abFusion.builtinMaterial = '';
+            console.log('内置素材未选择'); // 调试日志
+        }
+    } else if (currentSettings.abFusion.bVideoSource === 'generate') {
+        // AI生成的视频路径已经在generateBVideo函数中设置
+        currentSettings.abFusion.builtinMaterial = '';
+    } else if (currentSettings.abFusion.bVideoSource === 'upload') {
+        // 上传的视频路径已经在handleBVideoSelect函数中设置
+        currentSettings.abFusion.builtinMaterial = '';
+    }
+    
+    // 更新融合方案
+    const method = document.getElementById('fusion-method').value;
+    currentSettings.abFusion.method = method;
+    
+    // 隐藏所有设置
+    document.getElementById('transparency-settings').style.display = 'none';
+    document.getElementById('region-settings').style.display = 'none';
+    document.getElementById('dynamic-settings').style.display = 'none';
+    
+    // 显示对应的设置
+    if (method === 'transparency') {
+        document.getElementById('transparency-settings').style.display = 'block';
+        updateTransparencySettings();
+    } else if (method === 'region') {
+        document.getElementById('region-settings').style.display = 'block';
+        updateRegionSettings();
+    } else if (method === 'dynamic') {
+        document.getElementById('dynamic-settings').style.display = 'block';
+        updateDynamicSettings();
+    }
+    
+    // 更新其他设置
+    updateAdvancedOptions();
+    updateSettingsSummary();
+}
+
+// 更新透明度混合设置
+function updateTransparencySettings() {
+    const opacity = parseFloat(document.getElementById('b-video-opacity').value);
+    const adaptive = document.getElementById('adaptive-opacity').checked;
+    
+    currentSettings.abFusion.opacity = opacity;
+    currentSettings.abFusion.adaptiveOpacity = adaptive;
+    
+    document.getElementById('opacity-value').textContent = Math.round(opacity * 100) + '%';
+}
+
+// 更新区域替换设置
+function updateRegionSettings() {
+    const region = document.querySelector('input[name="region"]:checked').value;
+    const ratio = parseFloat(document.getElementById('region-ratio').value);
+    
+    currentSettings.abFusion.region = region;
+    currentSettings.abFusion.regionRatio = ratio;
+    
+    document.getElementById('region-ratio-value').textContent = Math.round(ratio * 100) + '%';
+}
+
+// 更新动态混合设置
+function updateDynamicSettings() {
+    const cycle = parseInt(document.getElementById('dynamic-cycle').value);
+    const opacityMin = parseFloat(document.getElementById('opacity-min').value);
+    const opacityMax = parseFloat(document.getElementById('opacity-max').value);
+    
+    currentSettings.abFusion.cycle = cycle;
+    currentSettings.abFusion.opacityMin = opacityMin;
+    currentSettings.abFusion.opacityMax = opacityMax;
+}
+
+// 更新高级选项
+function updateAdvancedOptions() {
+    currentSettings.abFusion.metadataDisguise = document.getElementById('metadata-disguise').checked;
+    currentSettings.abFusion.audioPhaseAdjust = document.getElementById('audio-phase-adjust').checked;
+    currentSettings.abFusion.keyframeModify = document.getElementById('keyframe-modify').checked;
+}
+
+// 应用平台预设
+function applyPreset(platform) {
+    switch(platform) {
+        case 'douyin':
+            // 抖音优化预设
+            currentSettings.abFusion.method = 'dynamic';
+            currentSettings.abFusion.cycle = 4;
+            currentSettings.abFusion.audioPhaseAdjust = true;
+            currentSettings.abFusion.keyframeModify = true;
+            document.getElementById('fusion-method').value = 'dynamic';
+            break;
+            
+        case 'youtube':
+            // YouTube优化预设
+            currentSettings.abFusion.method = 'region';
+            currentSettings.abFusion.region = 'edges';
+            currentSettings.abFusion.regionRatio = 0.15;
+            currentSettings.abFusion.metadataDisguise = true;
+            document.getElementById('fusion-method').value = 'region';
+            break;
+            
+        case 'kuaishou':
+            // 快手优化预设
+            currentSettings.abFusion.method = 'transparency';
+            currentSettings.abFusion.opacity = 0.3;
+            currentSettings.abFusion.adaptiveOpacity = true;
+            document.getElementById('fusion-method').value = 'transparency';
+            break;
+    }
+    
+    updateABFusion();
+    alert(`已应用${platform}优化预设`);
 }

@@ -239,6 +239,194 @@
                 </div>
             </div>
 
+            <!-- AB帧融合 -->
+            <div class="section">
+                <h2><i class="ri-merge-cells-horizontal"></i> AB帧融合</h2>
+                <div class="ab-fusion-controls">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enable-ab-fusion" onchange="toggleABFusion()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>启用AB帧融合</span>
+                        </label>
+                    </div>
+                    
+                    <div class="ab-fusion-options" id="ab-fusion-options" style="display: none;">
+                        <!-- B视频选择 -->
+                        <div class="control-group">
+                            <label><i class="ri-video-add-line"></i> B视频(平台识别层)</label>
+                            <div class="b-video-selector">
+                                <select id="b-video-source" onchange="toggleBVideoSource()">
+                                    <option value="upload">上传B视频文件</option>
+                                    <option value="builtin">使用内置素材库</option>
+                                    <option value="generate">AI生成无版权素材</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- B视频上传 -->
+                        <div class="b-video-upload" id="b-video-upload-section">
+                            <div class="upload-area-small" onclick="document.getElementById('b-video-file').click()">
+                                <i class="ri-upload-line"></i>
+                                <span>选择B视频文件</span>
+                            </div>
+                            <input type="file" id="b-video-file" accept="video/*" onchange="handleBVideoSelect(this)">
+                            <div class="selected-b-video" id="selected-b-video" style="display: none;">
+                                <span id="b-video-name">未选择B视频</span>
+                                <button onclick="removeBVideo()"><i class="ri-close-line"></i></button>
+                            </div>
+                        </div>
+                        
+                        <!-- 内置素材库 -->
+                        <div class="builtin-materials" id="builtin-materials-section" style="display: none;">
+                            <select id="builtin-material" onchange="updateABFusion()">
+                                <option value="">选择内置素材</option>
+                                <option value="nature_1">自然风景01 - 山水</option>
+                                <option value="nature_2">自然风景02 - 云海</option>
+                                <option value="abstract_1">抽象背景01 - 几何</option>
+                                <option value="abstract_2">抽象背景02 - 流体</option>
+                                <option value="texture_1">材质纹理01 - 木纹</option>
+                                <option value="texture_2">材质纹理02 - 金属</option>
+                            </select>
+                        </div>
+                        
+                        <!-- AI生成选项 -->
+                        <div class="ai-generate-options" id="ai-generate-section" style="display: none;">
+                            <div class="control-group">
+                                <label>生成类型</label>
+                                <select id="ai-generate-type">
+                                    <option value="nature">自然场景</option>
+                                    <option value="abstract">抽象图案</option>
+                                    <option value="noise">随机噪声</option>
+                                    <option value="gradient">渐变背景</option>
+                                </select>
+                            </div>
+                            <button class="generate-btn" onclick="generateBVideo()">
+                                <i class="ri-magic-line"></i> 生成B视频
+                            </button>
+                        </div>
+                        
+                        <!-- 融合方案 -->
+                        <div class="control-group">
+                            <label><i class="ri-settings-3-line"></i> 融合方案</label>
+                            <select id="fusion-method" onchange="updateABFusion()">
+                                <option value="transparency">透明度混合 (推荐新手)</option>
+                                <option value="region">区域替换 (更隐蔽)</option>
+                                <option value="dynamic">动态混合 (高阶玩法)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 透明度混合设置 -->
+                        <div class="fusion-settings" id="transparency-settings">
+                            <div class="control-group">
+                                <label>B视频透明度</label>
+                                <div class="range-control">
+                                    <input type="range" id="b-video-opacity" min="0.1" max="0.7" value="0.35" step="0.05" oninput="updateABFusion()">
+                                    <span id="opacity-value">35%</span>
+                                </div>
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="adaptive-opacity" onchange="updateABFusion()">
+                                    <i class="ri-checkbox-blank-line unchecked"></i>
+                                    <i class="ri-checkbox-line checked"></i>
+                                    <span>自适应透明度</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 区域替换设置 -->
+                        <div class="fusion-settings" id="region-settings" style="display: none;">
+                            <div class="control-group">
+                                <label>替换区域</label>
+                                <div class="region-options">
+                                    <label class="radio-label">
+                                        <input type="radio" name="region" value="corners" checked>
+                                        <span>四角区域</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="region" value="edges">
+                                        <span>边缘区域</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="region" value="center">
+                                        <span>中心区域</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>替换比例</label>
+                                <div class="range-control">
+                                    <input type="range" id="region-ratio" min="0.1" max="0.5" value="0.25" step="0.05" oninput="updateABFusion()">
+                                    <span id="region-ratio-value">25%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 动态混合设置 -->
+                        <div class="fusion-settings" id="dynamic-settings" style="display: none;">
+                            <div class="control-group">
+                                <label>变化周期(秒)</label>
+                                <input type="number" id="dynamic-cycle" min="3" max="30" value="5" onchange="updateABFusion()">
+                            </div>
+                            <div class="control-group">
+                                <label>透明度范围</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="opacity-min" min="0.1" max="0.7" value="0.2" step="0.05" placeholder="最小">
+                                    <span>-</span>
+                                    <input type="number" id="opacity-max" min="0.1" max="0.7" value="0.5" step="0.05" placeholder="最大">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 增效技巧 -->
+                        <div class="advanced-options">
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="metadata-disguise" onchange="updateABFusion()">
+                                    <i class="ri-checkbox-blank-line unchecked"></i>
+                                    <i class="ri-checkbox-line checked"></i>
+                                    <span>元数据伪装</span>
+                                </label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="audio-phase-adjust" onchange="updateABFusion()">
+                                    <i class="ri-checkbox-blank-line unchecked"></i>
+                                    <i class="ri-checkbox-line checked"></i>
+                                    <span>音频相位调整</span>
+                                </label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="keyframe-modify" onchange="updateABFusion()">
+                                    <i class="ri-checkbox-blank-line unchecked"></i>
+                                    <i class="ri-checkbox-line checked"></i>
+                                    <span>关键帧分布修改</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 预设配置 -->
+                        <div class="preset-configs">
+                            <label>平台优化预设</label>
+                            <div class="preset-buttons">
+                                <button class="preset-btn" onclick="applyPreset('douyin')">
+                                    <i class="ri-music-line"></i> 抖音优化
+                                </button>
+                                <button class="preset-btn" onclick="applyPreset('youtube')">
+                                    <i class="ri-youtube-line"></i> YouTube优化
+                                </button>
+                                <button class="preset-btn" onclick="applyPreset('kuaishou')">
+                                    <i class="ri-video-line"></i> 快手优化
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 分辨率设置 -->
             <div class="section">
                 <h2><i class="ri-artboard-line"></i> 分辨率设置</h2>

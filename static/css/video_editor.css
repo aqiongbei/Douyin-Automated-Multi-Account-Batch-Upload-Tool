@@ -820,6 +820,232 @@
     margin-bottom: 12px;
 }
 
+/* AB帧融合样式 */
+.ab-fusion-controls {
+    margin-top: 16px;
+}
+
+.ab-fusion-options {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.b-video-selector {
+    margin-bottom: 16px;
+}
+
+.b-video-selector select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.b-video-upload {
+    margin-bottom: 16px;
+}
+
+.upload-area-small {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.upload-area-small:hover {
+    border-color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.upload-area-small i {
+    font-size: 24px;
+    color: var(--text-secondary);
+    margin-right: 8px;
+}
+
+.upload-area-small span {
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.selected-b-video {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--surface-color);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    margin-top: 8px;
+}
+
+.selected-b-video span {
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.selected-b-video button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.selected-b-video button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--error-color);
+}
+
+.builtin-materials {
+    margin-bottom: 16px;
+}
+
+.builtin-materials select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.ai-generate-options {
+    margin-bottom: 16px;
+}
+
+.generate-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, var(--accent-color), #00d4aa);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.generate-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.generate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.fusion-settings {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.region-options {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.region-options .radio-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    font-size: 14px;
+}
+
+.region-options .radio-label:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.region-options input[type="radio"] {
+    margin: 0;
+    accent-color: var(--accent-color);
+}
+
+.advanced-options {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.advanced-options .checkbox-group {
+    margin-bottom: 12px;
+}
+
+.advanced-options .checkbox-group:last-child {
+    margin-bottom: 0;
+}
+
+.preset-configs {
+    margin-top: 16px;
+}
+
+.preset-configs label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.preset-configs .preset-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.preset-configs .preset-btn:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    transform: translateY(-1px);
+}
+
+.preset-configs .preset-btn i {
+    font-size: 14px;
+}
+
 .settings-summary ul {
     list-style: none;
     padding: 0;
