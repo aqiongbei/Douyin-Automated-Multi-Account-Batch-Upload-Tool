@@ -134,6 +134,63 @@
     border-color: var(--accent-color);
 }
 
+/* 批量选择控件 */
+.video-select-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.batch-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.batch-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--background-color);
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.batch-btn:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.video-select select[multiple] {
+    min-height: 120px;
+}
+
+.video-select select[multiple] option {
+    padding: 8px;
+    margin: 2px 0;
+}
+
+.video-select select[multiple] option:checked {
+    background: var(--accent-color);
+    color: white;
+}
+
+.selected-count {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--success-color);
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+}
+
 /* 视频输入区域 */
 .video-input {
     margin-bottom: 20px;

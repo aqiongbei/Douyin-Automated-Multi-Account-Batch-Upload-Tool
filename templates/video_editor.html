@@ -68,10 +68,23 @@
                         </select>
                     </div>
                     <div class="video-select" id="video-select-section" style="display: none;">
-                        <label><i class="ri-video-line"></i> 选择视频</label>
-                        <select id="video-select" onchange="handleFolderVideoSelect()">
+                        <div class="video-select-header">
+                            <label><i class="ri-video-line"></i> 选择视频</label>
+                            <div class="batch-controls">
+                                <button class="batch-btn" id="select-all-btn" onclick="selectAllVideos()">
+                                    <i class="ri-checkbox-multiple-line"></i> 全选
+                                </button>
+                                <button class="batch-btn" id="clear-all-btn" onclick="clearAllVideos()" style="display: none;">
+                                    <i class="ri-close-circle-line"></i> 清空
+                                </button>
+                            </div>
+                        </div>
+                        <select id="video-select" multiple onchange="handleFolderVideoSelect()">
                             <option value="">请选择视频文件</option>
                         </select>
+                        <div class="selected-count" id="selected-count" style="display: none;">
+                            已选择 <span id="count-number">0</span> 个视频文件
+                        </div>
                     </div>
                 </div>
                 

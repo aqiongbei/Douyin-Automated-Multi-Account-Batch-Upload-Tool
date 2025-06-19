@@ -627,15 +627,111 @@ def process_video():
             data = request.get_json()
             settings = data.get('settings', {})
             folder_name = data.get('folder_name')
-            video_filename = data.get('video_filename')
+            video_filenames = data.get('video_filenames', [])
             
-            if not folder_name or not video_filename:
+            # 向后兼容单个视频文件
+            if not video_filenames:
+                video_filename = data.get('video_filename')
+                if video_filename:
+                    video_filenames = [video_filename]
+            
+            if not folder_name or not video_filenames:
                 return jsonify({'error': '缺少文件夹或视频文件名'}), 400
+            
+            # 批量处理多个视频
+            processed_files = []
+            failed_files = []
+            
+            for video_filename in video_filenames:
+                try:
+                    # 从downloads文件夹获取视频
+                    input_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
+                    if not os.path.exists(input_path):
+                        failed_files.append(f'{video_filename}: 文件不存在')
+                        continue
+                    
+                    # 生成输出文件名和路径
+                    name, ext = os.path.splitext(video_filename)
+                    output_filename = f"{name}_edited{ext}"
+                    output_dir = os.path.join('videos', folder_name)
+                    output_path = os.path.join(output_dir, output_filename)
+                    
+                    # 确保输出目录存在
+                    os.makedirs(output_dir, exist_ok=True)
+                    
+                    # 构建FFmpeg命令
+                    ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
+                    
+                    # 执行FFmpeg命令
+                    import subprocess
+                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                    
+                    if result.returncode == 0:
+                        # 处理成功，尝试复制对应的txt文件和图片
+                        import urllib.parse
+                        decoded_name = urllib.parse.unquote(name)
+                        original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}.txt")
+                        
+                        # 如果解码后的文件不存在，尝试使用原始文件名
+                        if not os.path.exists(original_txt_path):
+                            original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}.txt")
+                        
+                        if os.path.exists(original_txt_path):
+                            # 复制txt文件到输出目录
+                            output_txt_path = os.path.join(output_dir, f"{name}_edited.txt")
+                            try:
+                                import shutil
+                                shutil.copy2(original_txt_path, output_txt_path)
+                                print(f"已复制txt文件: {original_txt_path} -> {output_txt_path}")
+                            except Exception as e:
+                                print(f"复制txt文件失败: {e}")
+                        
+                        # 复制可能存在的封面图片文件
+                        for img_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                            original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}{img_ext}")
+                            if not os.path.exists(original_img_path):
+                                original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
+                            
+                            if os.path.exists(original_img_path):
+                                output_img_path = os.path.join(output_dir, f"{name}_edited{img_ext}")
+                                try:
+                                    import shutil
+                                    shutil.copy2(original_img_path, output_img_path)
+                                    print(f"已复制封面图片: {original_img_path} -> {output_img_path}")
+                                    break  # 只复制第一个找到的图片
+                                except Exception as e:
+                                    print(f"复制封面图片失败: {e}")
+                        
+                        # 记录处理成功的文件
+                        relative_output = os.path.join(folder_name, output_filename).replace('\\', '/')
+                        processed_files.append({
+                            'original': video_filename,
+                            'processed': relative_output
+                        })
+                    else:
+                        failed_files.append(f'{video_filename}: {result.stderr}')
                 
-            # 从downloads文件夹获取视频
-            input_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
-            if not os.path.exists(input_path):
-                return jsonify({'error': '指定的视频文件不存在'}), 400
+                except Exception as e:
+                    failed_files.append(f'{video_filename}: {str(e)}')
+            
+            # 返回批量处理结果
+            if processed_files:
+                message = f'成功处理 {len(processed_files)} 个视频'
+                if failed_files:
+                    message += f'，{len(failed_files)} 个视频处理失败'
+                
+                return jsonify({
+                    'success': True,
+                    'processed_files': processed_files,
+                    'failed_files': failed_files,
+                    'output_file': processed_files[0]['processed'] if len(processed_files) == 1 else '',  # 兼容单文件
+                    'message': message
+                })
+            else:
+                return jsonify({
+                    'error': f'所有视频处理失败: {"; ".join(failed_files)}'
+                }), 500
+        
         else:
             # 表单请求 - 来自文件上传
             video_file = request.files.get('video')
@@ -656,87 +752,33 @@ def process_video():
             input_path = os.path.join(temp_dir, video_file.filename)
             video_file.save(input_path)
             video_filename = video_file.filename
-        
-        # 生成输出文件名和路径
-        name, ext = os.path.splitext(video_filename)
-        if request.content_type == 'application/json':
-            # 文件夹选择模式 - 保持文件夹结构
-            output_filename = f"{name}_edited{ext}"
-            output_dir = os.path.join('videos', folder_name)
-            output_path = os.path.join(output_dir, output_filename)
-        else:
-            # 上传模式 - 直接放在videos根目录
+            
+            # 生成输出文件名和路径
+            name, ext = os.path.splitext(video_filename)
             output_filename = f"{name}_edited{ext}"
             output_dir = 'videos'
             output_path = os.path.join(output_dir, output_filename)
-        
-        # 确保输出目录存在
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # 构建FFmpeg命令
-        ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
-        
-        # 执行FFmpeg命令
-        import subprocess
-        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            # 如果是文件夹选择模式，尝试复制对应的txt文件
-            if request.content_type == 'application/json' and folder_name and video_filename:
-                # 查找原始txt文件（需要URL解码文件名）
-                import urllib.parse
-                decoded_name = urllib.parse.unquote(name)
-                original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}.txt")
-                
-                # 如果解码后的文件不存在，尝试使用原始文件名
-                if not os.path.exists(original_txt_path):
-                    original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}.txt")
-                
-                if os.path.exists(original_txt_path):
-                    # 复制txt文件到输出目录
-                    output_txt_path = os.path.join(output_dir, f"{name}_edited.txt")
-                    try:
-                        import shutil
-                        shutil.copy2(original_txt_path, output_txt_path)
-                        print(f"已复制txt文件: {original_txt_path} -> {output_txt_path}")
-                    except Exception as e:
-                        print(f"复制txt文件失败: {e}")
-                else:
-                    print(f"未找到对应的txt文件: {original_txt_path}")
-                
-                # 同时尝试复制可能存在的封面图片文件
-                for img_ext in ['.jpg', '.jpeg', '.png', '.webp']:
-                    original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}{img_ext}")
-                    if not os.path.exists(original_img_path):
-                        original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
-                    
-                    if os.path.exists(original_img_path):
-                        output_img_path = os.path.join(output_dir, f"{name}_edited{img_ext}")
-                        try:
-                            import shutil
-                            shutil.copy2(original_img_path, output_img_path)
-                            print(f"已复制封面图片: {original_img_path} -> {output_img_path}")
-                            break  # 只复制第一个找到的图片
-                        except Exception as e:
-                            print(f"复制封面图片失败: {e}")
-                
-                # 如果有文件夹结构，返回相对路径
-                relative_output = os.path.join(folder_name, output_filename).replace('\\', '/')
-                return jsonify({
-                    'success': True,
-                    'output_file': relative_output,
-                    'message': '视频处理完成，已保持文件夹结构并复制txt文件'
-                })
-            else:
+            
+            # 确保输出目录存在
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 构建FFmpeg命令
+            ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
+            
+            # 执行FFmpeg命令
+            import subprocess
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
                 return jsonify({
                     'success': True,
                     'output_file': output_filename,
                     'message': '视频处理完成'
                 })
-        else:
-            return jsonify({
-                'error': f'视频处理失败: {result.stderr}'
-            }), 500
+            else:
+                return jsonify({
+                    'error': f'视频处理失败: {result.stderr}'
+                }), 500
             
     except Exception as e:
         return jsonify({'error': f'处理错误: {str(e)}'}), 500
