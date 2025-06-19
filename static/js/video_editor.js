@@ -17,17 +17,19 @@ let currentSettings = {
         blur: false
     },
     resolution: {
-        width: 1280,
-        height: 720,
+        width: 'original',
+        height: 'original',
         mode: 'crop'
     },
     transform: {
+        keep_original: true,
         rotation: 0,
         flipH: false,
         flipV: false,
         removeBlackBars: false
     },
     framerate: {
+        keep_original: true,
         target: 30,
         min: 24,
         max: 30
@@ -44,6 +46,7 @@ let currentSettings = {
         direction: 'in'
     },
     bitrate: {
+        keep_original: true,
         mode: 'multiplier',
         min: 1.05,
         max: 1.95,
@@ -65,8 +68,8 @@ function initializeEventListeners() {
     // 分辨率预设按钮
     document.querySelectorAll('.preset-btn:not(.custom)').forEach(btn => {
         btn.addEventListener('click', function() {
-            const width = parseInt(this.dataset.width);
-            const height = parseInt(this.dataset.height);
+            const width = this.dataset.width === 'original' ? 'original' : parseInt(this.dataset.width);
+            const height = this.dataset.height === 'original' ? 'original' : parseInt(this.dataset.height);
             setResolution(width, height);
             updatePresetButtons(this);
         });
@@ -75,9 +78,12 @@ function initializeEventListeners() {
     // 变换按钮
     document.querySelectorAll('.transform-btn:not(.random)').forEach(btn => {
         btn.addEventListener('click', function() {
-            const transform = this.dataset.transform;
-            applyTransform(transform);
-            this.classList.toggle('active');
+            // 只在不保持原始变换时才应用变换
+            if (!currentSettings.transform.keep_original) {
+                const transform = this.dataset.transform;
+                applyTransform(transform);
+                this.classList.toggle('active');
+            }
         });
     });
 
@@ -104,7 +110,7 @@ function handleVideoSelect(input) {
     document.getElementById('video-size').textContent = formatFileSize(file.size);
     
     // 创建视频预览
-    const video = document.getElementById('video-preview');
+    const video = document.getElementById('preview-video');
     const url = URL.createObjectURL(file);
     video.src = url;
     
@@ -114,11 +120,15 @@ function handleVideoSelect(input) {
         
         // 显示视频信息和预览
         document.getElementById('selected-video').style.display = 'flex';
-        document.getElementById('video-preview').style.display = 'block';
+        document.getElementById('preview-video').style.display = 'block';
         document.getElementById('no-video-placeholder').style.display = 'none';
         
         // 启用处理按钮
         document.getElementById('process-btn').disabled = false;
+        
+        // 默认选择保持原分辨率
+        setResolution('original', 'original');
+        updatePresetButtons(document.querySelector('.preset-btn.original'));
         
         updateSettingsSummary();
     };
@@ -128,7 +138,7 @@ function handleVideoSelect(input) {
 function removeVideo() {
     selectedVideo = null;
     document.getElementById('selected-video').style.display = 'none';
-    document.getElementById('video-preview').style.display = 'none';
+    document.getElementById('preview-video').style.display = 'none';
     document.getElementById('no-video-placeholder').style.display = 'flex';
     document.getElementById('process-btn').disabled = true;
     document.getElementById('video-file').value = '';
@@ -329,12 +339,15 @@ function setupBitrateMode() {
 function switchBitrateMode(mode) {
     currentSettings.bitrate.mode = mode;
     
-    if (mode === 'multiplier') {
-        document.getElementById('bitrate-multiplier').style.display = 'block';
-        document.getElementById('bitrate-fixed').style.display = 'none';
-    } else {
-        document.getElementById('bitrate-multiplier').style.display = 'none';
-        document.getElementById('bitrate-fixed').style.display = 'block';
+    // 只在不保持原码率时显示设置
+    if (!currentSettings.bitrate.keep_original) {
+        if (mode === 'multiplier') {
+            document.getElementById('bitrate-multiplier').style.display = 'block';
+            document.getElementById('bitrate-fixed').style.display = 'none';
+        } else {
+            document.getElementById('bitrate-multiplier').style.display = 'none';
+            document.getElementById('bitrate-fixed').style.display = 'block';
+        }
     }
     updateSettingsSummary();
 }
@@ -392,21 +405,35 @@ function updateSettingsSummary() {
         }
         
         // 分辨率
-        settings.push(`分辨率: ${currentSettings.resolution.width}×${currentSettings.resolution.height} (${getScaleModeText()})`);
+        if (currentSettings.resolution.width === 'original' && currentSettings.resolution.height === 'original') {
+            settings.push(`分辨率: 保持原分辨率 (${getScaleModeText()})`);
+        } else {
+            settings.push(`分辨率: ${currentSettings.resolution.width}×${currentSettings.resolution.height} (${getScaleModeText()})`);
+        }
         
         // 变换
-        const transforms = [];
-        if (currentSettings.transform.rotation !== 0) transforms.push(`旋转${currentSettings.transform.rotation}°`);
-        if (currentSettings.transform.flipH) transforms.push('水平翻转');
-        if (currentSettings.transform.flipV) transforms.push('垂直翻转');
-        if (currentSettings.transform.removeBlackBars) transforms.push('去除黑边');
-        
-        if (transforms.length > 0) {
-            settings.push(`变换: ${transforms.join(', ')}`);
+        if (currentSettings.transform.keep_original) {
+            settings.push(`变换: 保持原始方向`);
+        } else {
+            const transforms = [];
+            if (currentSettings.transform.rotation !== 0) transforms.push(`旋转${currentSettings.transform.rotation}°`);
+            if (currentSettings.transform.flipH) transforms.push('水平翻转');
+            if (currentSettings.transform.flipV) transforms.push('垂直翻转');
+            if (currentSettings.transform.removeBlackBars) transforms.push('去除黑边');
+            
+            if (transforms.length > 0) {
+                settings.push(`变换: ${transforms.join(', ')}`);
+            } else {
+                settings.push(`变换: 无变换`);
+            }
         }
         
         // 帧率
-        settings.push(`帧率: ${currentSettings.framerate.target} FPS`);
+        if (currentSettings.framerate.keep_original) {
+            settings.push(`帧率: 保持原帧率`);
+        } else {
+            settings.push(`帧率: ${currentSettings.framerate.target} FPS`);
+        }
         
         // 抽帧
         if (currentSettings.frameSkip.enabled) {
@@ -419,7 +446,9 @@ function updateSettingsSummary() {
         }
         
         // 码率
-        if (currentSettings.bitrate.mode === 'multiplier') {
+        if (currentSettings.bitrate.keep_original) {
+            settings.push(`码率: 保持原码率`);
+        } else if (currentSettings.bitrate.mode === 'multiplier') {
             settings.push(`码率: ${currentSettings.bitrate.min}×-${currentSettings.bitrate.max}× 倍率`);
         } else {
             settings.push(`码率: ${currentSettings.bitrate.fixed}kb/s 固定`);
@@ -518,28 +547,26 @@ async function processVideo() {
         const result = await response.json();
         
         if (response.ok && result.success) {
-            // 显示成功消息
+            // 显示成功消息和下载按钮
+            const filename = result.output_file.split('/').pop();
             statusDiv.querySelector('.status-message').innerHTML = 
-                '<i class="ri-check-circle-line" style="color: var(--success-color);"></i><span>视频处理完成！正在准备下载...</span>';
+                `<div style="text-align: center;">
+                    <div style="margin-bottom: 12px;">
+                        <i class="ri-check-circle-line" style="color: var(--success-color);"></i>
+                        <span>视频处理完成！</span>
+                    </div>
+                    <button onclick="downloadProcessedVideo('${result.output_file}', '${filename}')" 
+                            style="background: var(--success-color); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-right: 8px;">
+                        <i class="ri-download-line"></i> 下载视频
+                    </button>
+                    <button onclick="hideProcessStatus()" 
+                            style="background: var(--border-color); color: var(--text-color); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+                        关闭
+                    </button>
+                </div>`;
             
-            // 创建下载链接
-            setTimeout(() => {
-                const downloadLink = document.createElement('a');
-                downloadLink.href = `/videos/${result.output_file}`;
-                // 获取文件名（去掉路径）
-                const filename = result.output_file.split('/').pop();
-                downloadLink.download = filename;
-                downloadLink.style.display = 'none';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-                
-                // 重置状态
-                statusDiv.style.display = 'none';
-                document.getElementById('process-btn').disabled = false;
-                progressFill.style.width = '0%';
-                progressText.textContent = '0%';
-            }, 1000);
+            // 启用处理按钮，但保持状态显示
+            document.getElementById('process-btn').disabled = false;
             
         } else {
             throw new Error(result.error || '处理失败');
@@ -717,7 +744,7 @@ function toggleSourceType() {
     if (uploadRadio.checked) {
         sourceType = 'upload';
         document.getElementById('upload-section').style.display = 'block';
-        document.getElementById('folder-section').style.display = 'none';
+        document.getElementById('folder-select-section').style.display = 'none';
         // 清除文件夹选择状态
         selectedFolder = null;
         selectedVideoName = null;
@@ -726,7 +753,7 @@ function toggleSourceType() {
     } else if (folderRadio.checked) {
         sourceType = 'folder';
         document.getElementById('upload-section').style.display = 'none';
-        document.getElementById('folder-section').style.display = 'block';
+        document.getElementById('folder-select-section').style.display = 'block';
         // 清除上传文件状态
         selectedVideo = null;
         document.getElementById('video-file').value = '';
@@ -812,7 +839,7 @@ function handleFolderVideoSelect() {
     document.getElementById('video-resolution').textContent = '--×--';
     
     // 设置预览
-    const video = document.getElementById('video-preview');
+    const video = document.getElementById('preview-video');
     const videoPath = `/videos/downloads/${selectedFolder}/${selectedVideoName}`;
     video.src = videoPath;
     
@@ -828,11 +855,136 @@ function handleFolderVideoSelect() {
     
     // 显示视频信息和预览
     document.getElementById('selected-video').style.display = 'flex';
-    document.getElementById('video-preview').style.display = 'block';
+    document.getElementById('preview-video').style.display = 'block';
     document.getElementById('no-video-placeholder').style.display = 'none';
     
     // 启用处理按钮
     document.getElementById('process-btn').disabled = false;
     
+    // 默认选择保持原分辨率
+    setResolution('original', 'original');
+    updatePresetButtons(document.querySelector('.preset-btn.original'));
+    
     updateSettingsSummary();
 } 
+
+// 预览视频效果
+function previewVideo() {
+    const video = document.getElementById('preview-video');
+    if (video && video.src) {
+        if (video.paused) {
+            video.play();
+            document.getElementById('preview-btn').innerHTML = '<i class="ri-pause-line"></i> 暂停预览';
+        } else {
+            video.pause();
+            document.getElementById('preview-btn').innerHTML = '<i class="ri-play-line"></i> 预览效果';
+        }
+    }
+}
+
+// 切换是否保持原帧率
+function toggleOriginalFps() {
+    const keepOriginal = document.getElementById('keep-original-fps').checked;
+    const fpsSettings = document.getElementById('fps-settings');
+    
+    currentSettings.framerate.keep_original = keepOriginal;
+    fpsSettings.style.display = keepOriginal ? 'none' : 'block';
+    
+    updateSettingsSummary();
+}
+
+// 切换是否保持原码率
+function toggleOriginalBitrate() {
+    const keepOriginal = document.getElementById('keep-original-bitrate').checked;
+    const bitrateSettings = document.getElementById('bitrate-mode-settings');
+    const multiplierDiv = document.getElementById('bitrate-multiplier');
+    const fixedDiv = document.getElementById('bitrate-fixed');
+    
+    currentSettings.bitrate.keep_original = keepOriginal;
+    
+    if (keepOriginal) {
+        bitrateSettings.style.display = 'none';
+        multiplierDiv.style.display = 'none';
+        fixedDiv.style.display = 'none';
+    } else {
+        bitrateSettings.style.display = 'block';
+        // 根据当前模式显示对应设置
+        if (currentSettings.bitrate.mode === 'multiplier') {
+            multiplierDiv.style.display = 'block';
+            fixedDiv.style.display = 'none';
+        } else {
+            multiplierDiv.style.display = 'none';
+            fixedDiv.style.display = 'block';
+        }
+    }
+    
+    updateSettingsSummary();
+}
+
+// 切换是否保持原始变换
+function toggleOriginalTransform() {
+    const keepOriginal = document.getElementById('keep-original-transform').checked;
+    const transformButtons = document.getElementById('transform-buttons');
+    const blackBarsOption = document.getElementById('black-bars-option');
+    
+    currentSettings.transform.keep_original = keepOriginal;
+    
+    if (keepOriginal) {
+        transformButtons.style.display = 'none';
+        blackBarsOption.style.display = 'none';
+        // 重置变换状态
+        currentSettings.transform.rotation = 0;
+        currentSettings.transform.flipH = false;
+        currentSettings.transform.flipV = false;
+        currentSettings.transform.removeBlackBars = false;
+        // 清除所有变换按钮的active状态
+        document.querySelectorAll('.transform-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    } else {
+        transformButtons.style.display = 'grid';
+        blackBarsOption.style.display = 'block';
+    }
+    
+    updateSettingsSummary();
+}
+
+// 重置变换
+function resetTransform() {
+    currentSettings.transform.rotation = 0;
+    currentSettings.transform.flipH = false;
+    currentSettings.transform.flipV = false;
+    currentSettings.transform.removeBlackBars = false;
+    
+    // 清除所有按钮的active状态
+    document.querySelectorAll('.transform-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // 重置复选框
+    document.getElementById('remove-black-bars').checked = false;
+    
+    updateSettingsSummary();
+}
+
+// 下载处理后的视频
+function downloadProcessedVideo(outputFile, filename) {
+    const downloadLink = document.createElement('a');
+    downloadLink.href = `/videos/${outputFile}`;
+    downloadLink.download = filename;
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+
+// 隐藏处理状态
+function hideProcessStatus() {
+    const statusDiv = document.getElementById('progress-section');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    
+    statusDiv.style.display = 'none';
+    progressFill.style.width = '0%';
+    progressText.textContent = '0%';
+}

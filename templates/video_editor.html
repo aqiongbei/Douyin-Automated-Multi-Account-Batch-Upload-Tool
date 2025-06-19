@@ -60,7 +60,7 @@
                 </div>
                 
                 <!-- 文件夹选择 -->
-                <div class="folder-input" id="folder-section" style="display: none;">
+                <div class="folder-input" id="folder-select-section" style="display: none;">
                     <div class="folder-select">
                         <label><i class="ri-folder-line"></i> 选择文件夹</label>
                         <select id="folder-select" onchange="loadFolderVideos()">
@@ -98,13 +98,18 @@
                 <div class="video-preview">
                     <h3><i class="ri-tv-line"></i> 视频预览</h3>
                     <div class="preview-container">
-                        <video id="video-preview" controls style="display: none;">
+                        <video id="preview-video" controls style="display: none;">
                             您的浏览器不支持视频播放
                         </video>
                         <div class="no-video-placeholder" id="no-video-placeholder">
                             <i class="ri-film-line"></i>
                             <p>请先选择视频文件</p>
                         </div>
+                    </div>
+                    <div class="preview-controls">
+                        <button id="preview-btn" class="preview-btn" onclick="previewVideo()" disabled>
+                            <i class="ri-play-line"></i> 预览效果
+                        </button>
                     </div>
                 </div>
             </div>
@@ -217,6 +222,9 @@
                 <h2><i class="ri-artboard-line"></i> 分辨率设置</h2>
                 <div class="resolution-controls">
                     <div class="resolution-presets">
+                        <button class="preset-btn original active" data-width="original" data-height="original">
+                            <i class="ri-film-line"></i> 保持原分辨率
+                        </button>
                         <button class="preset-btn" data-width="1920" data-height="1080">1920×1080</button>
                         <button class="preset-btn" data-width="1280" data-height="720">1280×720</button>
                         <button class="preset-btn" data-width="854" data-height="480">854×480</button>
@@ -247,7 +255,16 @@
             <div class="section">
                 <h2><i class="ri-refresh-line"></i> 旋转翻转</h2>
                 <div class="transform-controls">
-                    <div class="transform-buttons">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="keep-original-transform" checked onchange="toggleOriginalTransform()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>保持原始方向</span>
+                        </label>
+                    </div>
+                    
+                    <div class="transform-buttons" id="transform-buttons" style="display: none;">
                         <button class="transform-btn" data-transform="rotate-left">
                             <i class="ri-anticlockwise-line"></i>
                             <span>左转90°</span>
@@ -268,9 +285,13 @@
                             <i class="ri-shuffle-line"></i>
                             <span>随机翻转</span>
                         </button>
+                        <button class="reset-transform-btn" onclick="resetTransform()">
+                            <i class="ri-restart-line"></i>
+                            <span>重置变换</span>
+                        </button>
                     </div>
                     
-                    <div class="checkbox-group">
+                    <div class="checkbox-group" id="black-bars-option" style="display: none;">
                         <label class="checkbox-label">
                             <input type="checkbox" id="remove-black-bars" onchange="updateTransform()">
                             <i class="ri-checkbox-blank-line unchecked"></i>
@@ -288,7 +309,16 @@
             <div class="section">
                 <h2><i class="ri-speed-line"></i> 帧率设置</h2>
                 <div class="framerate-controls">
-                    <div class="control-group">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="keep-original-fps" checked onchange="toggleOriginalFps()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>保持原帧率</span>
+                        </label>
+                    </div>
+                    
+                    <div class="control-group" id="fps-settings" style="display: none;">
                         <label>目标帧率 (FPS)</label>
                         <div class="framerate-input">
                             <input type="number" id="target-fps" min="12" max="120" value="30" step="0.1">
@@ -380,7 +410,16 @@
             <div class="section">
                 <h2><i class="ri-bar-chart-line"></i> 码率调整</h2>
                 <div class="bitrate-controls">
-                    <div class="bitrate-mode">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="keep-original-bitrate" checked onchange="toggleOriginalBitrate()">
+                            <i class="ri-checkbox-blank-line unchecked"></i>
+                            <i class="ri-checkbox-line checked"></i>
+                            <span>保持原码率</span>
+                        </label>
+                    </div>
+                    
+                    <div class="bitrate-mode" id="bitrate-mode-settings" style="display: none;">
                         <div class="radio-group">
                             <label>
                                 <input type="radio" name="bitrate-mode" value="multiplier" checked>
@@ -442,12 +481,12 @@
                         </div>
                     </div>
                     
-                    <div class="process-status" id="process-status" style="display: none;">
+                    <div class="process-status" id="progress-section" style="display: none;">
                         <div class="status-message">
                             <i class="ri-loader-line spinning"></i>
                             <span>正在处理视频...</span>
                         </div>
-                        <div class="progress-bar">
+                        <div class="progress-bar" id="progress-bar">
                             <div class="progress-fill" id="progress-fill"></div>
                         </div>
                         <div class="progress-text" id="progress-text">0%</div>

@@ -264,6 +264,37 @@
     opacity: 0.5;
 }
 
+.preview-controls {
+    text-align: center;
+    margin-top: 12px;
+}
+
+.preview-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.preview-btn:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.preview-btn:disabled {
+    background: var(--border-color);
+    color: var(--text-light);
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* 控制组样式 */
 .control-group {
     margin-bottom: 20px;
@@ -432,9 +463,26 @@
 /* 分辨率预设按钮 */
 .resolution-presets {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-bottom: 16px;
+}
+
+/* 保持原分辨率按钮跨两列显示 */
+.preset-btn.original {
+    grid-column: 1 / -1;
+    background: var(--primary-color) !important;
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+.preset-btn.original:hover {
+    background: var(--primary-hover) !important;
+    transform: none !important;
+}
+
+.preset-btn.original.active {
+    background: var(--primary-color) !important;
 }
 
 .preset-btn {
@@ -544,6 +592,28 @@
 .transform-btn span {
     font-size: 11px !important;
     font-weight: 600 !important;
+}
+
+/* 重置变换按钮跨两列 */
+.reset-transform-btn {
+    grid-column: 1 / -1;
+    background: var(--error-color) !important;
+    color: white !important;
+    border: none !important;
+    padding: 10px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+.reset-transform-btn:hover {
+    background: #dc2626 !important;
+    transform: translateY(-1px) !important;
 }
 
 /* 帧率输入 */
@@ -811,4 +881,44 @@
         order: 3;
         align-self: flex-end;
     }
-} 
+}
+
+#video-preview-container {
+    width: 100%;
+    /* 模拟 9:16 的宽高比，设置一个最大高度 */
+    max-height: 640px; 
+    aspect-ratio: 9 / 16;
+    background-color: #000;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+#preview-video {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain; /* 保持视频宽高比 */
+    border-radius: 8px;
+}
+
+#no-video-placeholder {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    color: var(--text-light);
+    padding: 60px 20px;
+}
+
+#no-video-placeholder i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    color: var(--primary-color);
+    opacity: 0.5;
+}

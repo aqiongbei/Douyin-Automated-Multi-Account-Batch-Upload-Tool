@@ -772,31 +772,34 @@ def build_ffmpeg_command(input_path, output_path, settings):
         height = resolution['height']
         mode = resolution.get('mode', 'crop')
         
-        if mode == 'stretch':
-            filters.append(f'scale={width}:{height}')
-        elif mode == 'crop':
-            filters.append(f'scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}')
-        elif mode == 'letterbox':
-            filters.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black')
-        elif mode == 'pad':
-            filters.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease,gblur=sigma=20,scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}')
+        # 如果设置为保持原分辨率，则跳过分辨率处理
+        if width != 'original' and height != 'original':
+            if mode == 'stretch':
+                filters.append(f'scale={width}:{height}')
+            elif mode == 'crop':
+                filters.append(f'scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}')
+            elif mode == 'letterbox':
+                filters.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black')
+            elif mode == 'pad':
+                filters.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease,gblur=sigma=20,scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}')
     
     # 旋转和翻转
     transform = settings.get('transform', {})
-    if transform.get('rotation', 0) != 0:
-        rotation = transform['rotation']
-        if rotation == 90:
-            filters.append('transpose=1')
-        elif rotation == 180:
-            filters.append('transpose=1,transpose=1')
-        elif rotation == 270:
-            filters.append('transpose=2')
-    
-    if transform.get('flipH', False):
-        filters.append('hflip')
-    
-    if transform.get('flipV', False):
-        filters.append('vflip')
+    if not transform.get('keep_original', False):
+        if transform.get('rotation', 0) != 0:
+            rotation = transform['rotation']
+            if rotation == 90:
+                filters.append('transpose=1')
+            elif rotation == 180:
+                filters.append('transpose=1,transpose=1')
+            elif rotation == 270:
+                filters.append('transpose=2')
+        
+        if transform.get('flipH', False):
+            filters.append('hflip')
+        
+        if transform.get('flipV', False):
+            filters.append('vflip')
     
     # 分屏效果
     split_screen = settings.get('splitScreen', {})
@@ -830,8 +833,9 @@ def build_ffmpeg_command(input_path, output_path, settings):
     
     # 帧率设置
     framerate = settings.get('framerate', {})
-    target_fps = framerate.get('target', 30)
-    cmd.extend(['-r', str(target_fps)])
+    if not framerate.get('keep_original', False):
+        target_fps = framerate.get('target', 30)
+        cmd.extend(['-r', str(target_fps)])
     
     # 抽帧设置
     frame_skip = settings.get('frameSkip', {})
@@ -843,13 +847,14 @@ def build_ffmpeg_command(input_path, output_path, settings):
     
     # 码率设置
     bitrate = settings.get('bitrate', {})
-    if bitrate.get('mode') == 'fixed':
-        fixed_bitrate = bitrate.get('fixed', 3000)
-        cmd.extend(['-b:v', f'{fixed_bitrate}k'])
-    else:
-        # 倍率模式，使用默认码率的倍数
-        multiplier = (bitrate.get('min', 1.05) + bitrate.get('max', 1.95)) / 2
-        cmd.extend(['-q:v', str(int(28 / multiplier))])  # 反向计算质量参数
+    if not bitrate.get('keep_original', False):
+        if bitrate.get('mode') == 'fixed':
+            fixed_bitrate = bitrate.get('fixed', 3000)
+            cmd.extend(['-b:v', f'{fixed_bitrate}k'])
+        else:
+            # 倍率模式，使用默认码率的倍数
+            multiplier = (bitrate.get('min', 1.05) + bitrate.get('max', 1.95)) / 2
+            cmd.extend(['-q:v', str(int(28 / multiplier))])  # 反向计算质量参数
     
     # 输出设置
     cmd.extend(['-y', output_path])
