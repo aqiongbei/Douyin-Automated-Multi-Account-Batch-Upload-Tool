@@ -1928,6 +1928,20 @@ input[type="password"]:focus {
     font-size: 16px;
 }
 
+.context-menu-item.danger {
+    color: #ff4444;
+}
+
+.context-menu-item.danger:hover {
+    background-color: rgba(255, 68, 68, 0.1);
+}
+
+.context-menu-separator {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 4px 0;
+}
+
 .video-actions {
     display: flex;
     gap: 10px;

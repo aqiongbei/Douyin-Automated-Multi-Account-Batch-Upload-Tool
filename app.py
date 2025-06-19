@@ -1450,6 +1450,140 @@ def serve_downloads_video(folder_name, video_name):
     downloads_path = os.path.join(os.getcwd(), 'downloads')
     return send_from_directory(os.path.join(downloads_path, folder_name), video_name)
 
+# 删除本地视频文件夹
+@app.route('/api/videos/delete_folder', methods=['POST'])
+def delete_video_folder():
+    """删除videos目录下的文件夹及其所有内容"""
+    try:
+        data = request.get_json()
+        folder_path = data.get('folder_path')
+        folder_name = data.get('folder_name')
+        
+        if not folder_path:
+            return jsonify({
+                "success": False,
+                "message": "未提供文件夹路径"
+            }), 400
+        
+        # 安全检查：确保路径在videos目录下
+        full_path = os.path.join("videos", folder_path)
+        videos_abs_path = os.path.abspath("videos")
+        target_abs_path = os.path.abspath(full_path)
+        
+        if not target_abs_path.startswith(videos_abs_path):
+            return jsonify({
+                "success": False,
+                "message": "无效的文件夹路径"
+            }), 400
+        
+        if not os.path.exists(full_path):
+            return jsonify({
+                "success": False,
+                "message": "文件夹不存在"
+            }), 404
+        
+        if not os.path.isdir(full_path):
+            return jsonify({
+                "success": False,
+                "message": "指定路径不是文件夹"
+            }), 400
+        
+        # 统计删除的文件数量
+        deleted_count = 0
+        for root, dirs, files in os.walk(full_path):
+            deleted_count += len(files)
+        
+        # 删除文件夹及其所有内容
+        shutil.rmtree(full_path)
+        
+        return jsonify({
+            "success": True,
+            "message": f"文件夹 '{folder_name}' 删除成功",
+            "deleted_count": deleted_count
+        })
+        
+    except Exception as e:
+        print(f"删除文件夹时发生错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"删除文件夹失败: {str(e)}"
+        }), 500
+
+# 删除本地视频文件
+@app.route('/api/videos/delete_file', methods=['POST'])
+def delete_video_file():
+    """删除videos目录下的单个文件"""
+    try:
+        data = request.get_json()
+        file_path = data.get('file_path')
+        file_name = data.get('file_name')
+        
+        if not file_path:
+            return jsonify({
+                "success": False,
+                "message": "未提供文件路径"
+            }), 400
+        
+        # 安全检查：确保路径在videos目录下
+        full_path = os.path.join("videos", file_path)
+        videos_abs_path = os.path.abspath("videos")
+        target_abs_path = os.path.abspath(full_path)
+        
+        if not target_abs_path.startswith(videos_abs_path):
+            return jsonify({
+                "success": False,
+                "message": "无效的文件路径"
+            }), 400
+        
+        if not os.path.exists(full_path):
+            return jsonify({
+                "success": False,
+                "message": "文件不存在"
+            }), 404
+        
+        if not os.path.isfile(full_path):
+            return jsonify({
+                "success": False,
+                "message": "指定路径不是文件"
+            }), 400
+        
+        # 删除文件
+        os.remove(full_path)
+        
+        # 同时删除可能存在的相关文件（txt描述文件、封面图片等）
+        base_name = os.path.splitext(full_path)[0]
+        related_files = []
+        
+        # 查找并删除txt文件
+        txt_file = base_name + '.txt'
+        if os.path.exists(txt_file):
+            os.remove(txt_file)
+            related_files.append('txt描述文件')
+        
+        # 查找并删除封面图片
+        for ext in ['.jpg', '.jpeg', '.png', '.webp']:
+            img_file = base_name + ext
+            if os.path.exists(img_file):
+                os.remove(img_file)
+                related_files.append('封面图片')
+                break
+        
+        message = f"文件 '{file_name}' 删除成功"
+        if related_files:
+            message += f"，同时删除了{', '.join(related_files)}"
+        
+        return jsonify({
+            "success": True,
+            "message": message
+        })
+        
+    except Exception as e:
+        print(f"删除文件时发生错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"删除文件失败: {str(e)}"
+        }), 500
+
 def get_title_tags_from_txt(video_path):
     txt_path = os.path.splitext(video_path)[0] + ".txt"
     if os.path.exists(txt_path):

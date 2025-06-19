@@ -430,6 +430,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     toggleSelectVideo(fullPath, item.name);
                 });
                 
+                // 添加文件右键菜单支持
+                itemElement.addEventListener('contextmenu', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    showFileContextMenu(event, fullPath, item.name);
+                });
+                
                 // 如果视频已选中，添加选中标记
                 if (selectedVideos.find(v => normalizePath(v.path) === fullPath)) {
                     itemElement.style.color = '#ff0050';
@@ -1969,6 +1976,75 @@ document.addEventListener('DOMContentLoaded', function() {
     window.regenerateFingerprint = regenerateFingerprint;
     window.deleteFingerprint = deleteFingerprint;
     
+    // 显示文件右键菜单
+    function showFileContextMenu(event, filePath, fileName) {
+        // 移除已存在的菜单
+        const existingMenu = document.getElementById('file-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+        
+        // 创建右键菜单
+        const menu = document.createElement('div');
+        menu.id = 'file-context-menu';
+        menu.className = 'context-menu';
+        menu.style.position = 'fixed';
+        menu.style.left = event.clientX + 'px';
+        menu.style.top = event.clientY + 'px';
+        menu.style.zIndex = '9999';
+        
+        // 检查文件是否已选中
+        const isSelected = selectedVideos.find(v => normalizePath(v.path) === normalizePath(filePath));
+        
+        // 添加选择/取消选择菜单项
+        const toggleSelectItem = document.createElement('div');
+        toggleSelectItem.className = 'context-menu-item';
+        if (isSelected) {
+            toggleSelectItem.innerHTML = '<i class="ri-checkbox-blank-line"></i> 取消选择';
+            toggleSelectItem.addEventListener('click', function() {
+                toggleSelectVideo(filePath, fileName);
+                menu.remove();
+            });
+        } else {
+            toggleSelectItem.innerHTML = '<i class="ri-checkbox-line"></i> 选择';
+            toggleSelectItem.addEventListener('click', function() {
+                toggleSelectVideo(filePath, fileName);
+                menu.remove();
+            });
+        }
+        
+        // 添加分隔线
+        const separator = document.createElement('div');
+        separator.className = 'context-menu-separator';
+        
+        // 添加删除文件菜单项
+        const deleteFileItem = document.createElement('div');
+        deleteFileItem.className = 'context-menu-item danger';
+        deleteFileItem.innerHTML = '<i class="ri-delete-bin-line"></i> 删除文件';
+        deleteFileItem.addEventListener('click', function() {
+            deleteFileWithConfirm(filePath, fileName);
+            menu.remove();
+        });
+        
+        menu.appendChild(toggleSelectItem);
+        menu.appendChild(separator);
+        menu.appendChild(deleteFileItem);
+        
+        document.body.appendChild(menu);
+        
+        // 点击其他地方时关闭菜单
+        const closeMenu = function(e) {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 10);
+    }
+    
     // 显示文件夹右键菜单
     function showFolderContextMenu(event, folderPath, folderName) {
         // 移除已存在的菜单
@@ -2003,8 +2079,22 @@ document.addEventListener('DOMContentLoaded', function() {
             menu.remove();
         });
         
+        // 添加分隔线
+        const separator = document.createElement('div');
+        separator.className = 'context-menu-separator';
+        
+        const deleteFolderItem = document.createElement('div');
+        deleteFolderItem.className = 'context-menu-item danger';
+        deleteFolderItem.innerHTML = '<i class="ri-delete-bin-line"></i> 删除文件夹及内容';
+        deleteFolderItem.addEventListener('click', function() {
+            deleteFolderWithConfirm(folderPath, folderName);
+            menu.remove();
+        });
+        
         menu.appendChild(selectAllItem);
         menu.appendChild(unselectAllItem);
+        menu.appendChild(separator);
+        menu.appendChild(deleteFolderItem);
         
         document.body.appendChild(menu);
         
@@ -2161,6 +2251,100 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
+    // 删除文件夹及内容（带确认）
+    function deleteFolderWithConfirm(folderPath, folderName) {
+        const confirmMsg = `确定要删除文件夹"${folderName}"及其所有内容吗？\n\n此操作无法撤销！`;
+        if (confirm(confirmMsg)) {
+            deleteLocalFolder(folderPath, folderName);
+        }
+    }
+    
+    // 删除单个文件（带确认）
+    function deleteFileWithConfirm(filePath, fileName) {
+        const confirmMsg = `确定要删除文件"${fileName}"吗？\n\n此操作无法撤销！`;
+        if (confirm(confirmMsg)) {
+            deleteLocalFile(filePath, fileName);
+        }
+    }
+    
+    // 删除本地文件夹
+    function deleteLocalFolder(folderPath, folderName) {
+        const normalizedPath = normalizePath(folderPath);
+        
+        fetch('/api/videos/delete_folder', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                folder_path: normalizedPath,
+                folder_name: folderName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 从选中列表中移除该文件夹下的所有视频
+                for (let i = selectedVideos.length - 1; i >= 0; i--) {
+                    const videoPath = normalizePath(selectedVideos[i].path);
+                    if (videoPath.startsWith(normalizedPath + '/') || videoPath === normalizedPath) {
+                        selectedVideos.splice(i, 1);
+                    }
+                }
+                
+                // 刷新显示
+                updateSelectedVideosList();
+                loadVideos();
+                
+                alert(`文件夹"${folderName}"删除成功！${data.deleted_count ? `共删除了${data.deleted_count}个文件` : ''}`);
+            } else {
+                alert('删除文件夹失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('删除文件夹失败:', error);
+            alert('删除文件夹失败，请重试');
+        });
+    }
+    
+    // 删除本地文件
+    function deleteLocalFile(filePath, fileName) {
+        const normalizedPath = normalizePath(filePath);
+        
+        fetch('/api/videos/delete_file', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                file_path: normalizedPath,
+                file_name: fileName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 从选中列表中移除该文件
+                const index = selectedVideos.findIndex(v => normalizePath(v.path) === normalizedPath);
+                if (index !== -1) {
+                    selectedVideos.splice(index, 1);
+                }
+                
+                // 刷新显示
+                updateSelectedVideosList();
+                loadVideos();
+                
+                alert(`文件"${fileName}"删除成功！`);
+            } else {
+                alert('删除文件失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('删除文件失败:', error);
+            alert('删除文件失败，请重试');
+        });
+    }
+
     // 清空所有选择
     function clearAllVideos() {
         if (selectedVideos.length === 0) {
