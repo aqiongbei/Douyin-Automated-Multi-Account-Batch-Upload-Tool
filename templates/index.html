@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抖音视频上传工具</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css">
+</head>
+<body>
+    <!-- 全局工具栏 -->
+    <div class="global-toolbar">
+        <div class="toolbar-left">
+            <h1><i class="ri-video-upload-line"></i> 抖音视频上传工具</h1>
+        </div>
+        <div class="toolbar-right">
+            <!-- 移除原来的刷新按钮，改为悬浮按钮 -->
+        </div>
+    </div>
+    
+    <div class="container" style="display: flex; gap: 32px; align-items: flex-start;">
+        <div style="flex: 1; min-width: 380px; display: flex; flex-direction: column; gap: 32px;">
+            <div class="section">
+                <h2><i class="ri-key-line"></i> Cookie管理</h2>
+                <div class="cookie-container">
+                    <div class="cookie-form">
+                        <div class="input-group">
+                            <input type="text" id="cookie-name" placeholder="输入Cookie名称">
+                        </div>
+                        <div class="proxy-selection">
+                            <label for="cookie-proxy-select"><i class="ri-global-line"></i> 选择代理（可选）：</label>
+                            <select id="cookie-proxy-select">
+                                <option value="">不使用代理</option>
+                            </select>
+                            <span class="proxy-hint">⚠️ 选择的代理需要与上传时使用的代理一致，否则Cookie会失效</span>
+                        </div>
+                        <button id="generate-cookie"><i class="ri-add-circle-line"></i> 生成新Cookie</button>
+                        <p class="helper-text">生成新的Cookie时会打开浏览器，请按照提示登录抖音账号</p>
+                    </div>
+                    <div class="cookie-list">
+                        <h3><i class="ri-list-check"></i> 可用Cookie列表</h3>
+                        <div class="cookie-select-container">
+                            <select id="cookie-select" size="5"></select>
+                            <div id="selected-cookie-indicator" class="selected-indicator hidden">
+                                <i class="ri-check-line"></i>
+                                <span id="selected-cookie-name">未选择</span>
+                            </div>
+                        </div>
+                        <div class="cookie-actions">
+                            <button id="delete-cookie" class="danger-button"><i class="ri-delete-bin-line"></i> 删除选中Cookie</button>
+                            <button id="validate-cookie-btn" class="secondary-button" onclick="validateSelectedCookie()">
+                                <i class="ri-shield-check-line"></i> 验证Cookie
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加浏览器视图模态框 -->
+            <div id="browser-view-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="ri-computer-line"></i> 浏览器实时视图</h3>
+                        <button id="close-browser-view" class="close-btn"><i class="ri-close-line"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="browser-status" class="status-message">
+                            <i class="ri-loader-line spinning"></i> 正在启动浏览器...
+                        </div>
+                        <div id="browser-screenshot-container" class="screenshot-container">
+                            <img id="browser-screenshot" src="" alt="浏览器截图" />
+                            <div id="screenshot-overlay" class="screenshot-overlay">
+                                <div class="overlay-content">
+                                    <i class="ri-eye-line"></i>
+                                    <p>请在弹出的浏览器窗口中完成登录操作</p>
+                                    <p>这里显示的是浏览器的实时画面</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="browser-controls">
+                            <button id="refresh-screenshot" class="primary-button">
+                                <i class="ri-refresh-line"></i> 刷新画面
+                            </button>
+                            <div class="screenshot-info">
+                                <span id="screenshot-timestamp">最后更新: --</span>
+                                <div class="click-hint">
+                                    <i class="ri-hand-finger-line"></i> 直接点击图片即可操作浏览器
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 键盘输入控制区域 -->
+                        <div class="keyboard-controls">
+                            <h4><i class="ri-keyboard-line"></i> 键盘输入控制</h4>
+                            
+                            <div class="input-section">
+                                <div class="input-group">
+                                    <input type="text" id="text-input" placeholder="输入文本内容..." maxlength="200">
+                                    <button id="send-text" class="primary-button">
+                                        <i class="ri-send-plane-line"></i> 发送
+                                    </button>
+                                    <button id="clear-input" class="danger-button">
+                                        <i class="ri-delete-bin-line"></i> 清空
+                                    </button>
+                                </div>
+                                <div class="input-hint">
+                                    💡 点击输入框聚焦后，可直接在此处输入文本
+                                </div>
+                            </div>
+                            
+                            <div class="special-keys">
+                                <h5>常用按键</h5>
+                                <div class="key-buttons">
+                                    <button class="key-btn" data-key="Enter">
+                                        <i class="ri-corner-down-left-line"></i> 回车
+                                    </button>
+                                    <button class="key-btn" data-key="Tab">
+                                        <i class="ri-skip-forward-line"></i> Tab
+                                    </button>
+                                    <button class="key-btn" data-key="Backspace">
+                                        <i class="ri-delete-back-line"></i> 退格
+                                    </button>
+                                    <button class="key-btn" data-key="Escape">
+                                        <i class="ri-close-line"></i> ESC
+                                    </button>
+                                    <button class="key-btn" data-key="Control+c">
+                                        <i class="ri-file-copy-line"></i> 复制
+                                    </button>
+                                    <button class="key-btn" data-key="Control+v">
+                                        <i class="ri-clipboard-line"></i> 粘贴
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><i class="ri-movie-line"></i> 视频管理</h2>
+                <div class="video-container">
+                    <div class="video-list">
+                        <h3><i class="ri-folders-line"></i> 本地视频列表</h3>
+                        <div class="video-actions">
+                            <button class="action-btn" onclick="selectAllVideos()">
+                                <i class="ri-checkbox-multiple-line"></i> 全选
+                            </button>
+                            <button class="action-btn" onclick="clearAllVideos()">
+                                <i class="ri-checkbox-blank-line"></i> 清空选择
+                            </button>
+                            <button class="action-btn upload-btn" onclick="document.getElementById('archive-upload').click()">
+                                <i class="ri-folder-zip-line"></i> 上传压缩包
+                            </button>
+                            <input type="file" id="archive-upload" style="display: none;" accept=".zip,.rar,.7z" onchange="uploadArchive(this)">
+                            <span class="video-tip">
+                                <i class="ri-information-line"></i> 
+                                右键点击文件夹可选择该文件夹所有视频；支持.zip/.rar/.7z压缩包批量上传（保持文件夹结构）
+                            </span>
+                        </div>
+                        <div id="video-tree"></div>
+                    </div>
+                    <div class="selected-videos">
+                        <h3><i class="ri-checkbox-multiple-line"></i> 已选择视频</h3>
+                        <ul id="selected-videos-list"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 新增视频权限设置 -->
+            <div class="section">
+                <h2><i class="ri-shield-user-line"></i> 视频权限设置</h2>
+                <div class="video-permission-container">
+                    <div class="permission-form">
+                        <h3><i class="ri-settings-2-line"></i> 权限设置</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="permission-cookie-select"><i class="ri-key-line"></i> 选择账号：</label>
+                                <select id="permission-cookie-select">
+                                    <option value="">请选择Cookie</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="permission-type-select"><i class="ri-shield-line"></i> 权限类型：</label>
+                                <select id="permission-type-select">
+                                    <option value="">请选择权限</option>
+                                    <option value="0">🌐 公开</option>
+                                    <option value="2">👥 好友可见</option>
+                                    <option value="1">🔒 仅自己可见</option>
+                                </select>
+                            </div>
+                            <button id="get-permission-videos-btn" class="secondary-button" onclick="getPermissionVideos()">
+                                <i class="ri-download-cloud-line"></i> 获取视频列表
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="remote-videos-list">
+                        <h3><i class="ri-cloud-line"></i> 远程视频列表</h3>
+                        <div id="permission-videos-status" class="status-message hidden">
+                            <i class="ri-loader-line spinning"></i> 正在获取视频列表...
+                        </div>
+                        
+                        <div id="permission-videos-container" class="hidden">
+                            <div class="videos-actions">
+                                <button class="action-btn" onclick="selectAllPermissionVideos()">
+                                    <i class="ri-checkbox-multiple-line"></i> 全选
+                                </button>
+                                <button class="action-btn" onclick="clearAllPermissionVideos()">
+                                    <i class="ri-checkbox-blank-line"></i> 清空选择
+                                </button>
+                                <div class="permission-options">
+                                    <label for="max-permission-count">
+                                        <i class="ri-numbers-line"></i> 限制设置数量：
+                                    </label>
+                                    <input type="number" id="max-permission-count" min="1" placeholder="不限制">
+                                    <span class="permission-hint">留空表示设置所有选中的视频</span>
+                                </div>
+                            </div>
+                            
+                            <div class="remote-videos-table-container">
+                                <table id="permission-videos-table">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="select-all-permission" onchange="toggleAllPermissionVideos()"></th>
+                                            <th>序号</th>
+                                            <th>标题</th>
+                                            <th>发布时间</th>
+                                            <th>当前权限</th>
+                                            <th>播放数据</th>
+                                            <th>操作状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="permission-videos-table-body">
+                                        <tr class="empty-row">
+                                            <td colspan="7" class="empty-cell">
+                                                <i class="ri-inbox-line"></i> 请先获取视频列表
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="permission-controls">
+                                <button id="set-selected-permissions-btn" class="primary-button" onclick="setSelectedPermissions()" disabled>
+                                    <i class="ri-shield-check-line"></i> 设置选中视频权限
+                                </button>
+                                <button id="set-all-permissions-btn" class="primary-button" onclick="setAllPermissions()">
+                                    <i class="ri-shield-star-line"></i> 设置所有视频权限
+                                </button>
+                                <div class="permission-warning">
+                                    <i class="ri-information-line"></i> 
+                                    权限设置操作不可恢复，请谨慎操作！
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 权限设置状态显示 -->
+                    <div id="permission-status-container" class="hidden">
+                        <h3><i class="ri-timer-line"></i> 权限设置进度</h3>
+                        <div id="permission-status" class="status-message">
+                            准备设置权限...
+                        </div>
+                        <div id="permission-progress" class="progress-container">
+                            <div class="progress-bar">
+                                <div id="permission-progress-bar" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span id="permission-progress-text">0 / 0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 新增视频删除管理 -->
+            <div class="section">
+                <h2><i class="ri-delete-bin-line"></i> 视频删除管理</h2>
+                <div class="video-delete-container">
+                    <div class="delete-form">
+                        <h3><i class="ri-search-line"></i> 获取已发布视频</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="delete-cookie-select"><i class="ri-key-line"></i> 选择账号：</label>
+                                <select id="delete-cookie-select">
+                                    <option value="">请选择Cookie</option>
+                                </select>
+                            </div>
+                            <button id="get-remote-videos-btn" class="secondary-button" onclick="getRemoteVideos()">
+                                <i class="ri-download-cloud-line"></i> 获取视频列表
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="remote-videos-list">
+                        <h3><i class="ri-cloud-line"></i> 远程视频列表</h3>
+                        <div id="remote-videos-status" class="status-message hidden">
+                            <i class="ri-loader-line spinning"></i> 正在获取视频列表...
+                        </div>
+                        
+                        <div id="remote-videos-container" class="hidden">
+                            <div class="videos-actions">
+                                <button class="action-btn" onclick="selectAllRemoteVideos()">
+                                    <i class="ri-checkbox-multiple-line"></i> 全选
+                                </button>
+                                <button class="action-btn" onclick="clearAllRemoteVideos()">
+                                    <i class="ri-checkbox-blank-line"></i> 清空选择
+                                </button>
+                                <div class="delete-options">
+                                    <label for="max-delete-count">
+                                        <i class="ri-numbers-line"></i> 限制删除数量：
+                                    </label>
+                                    <input type="number" id="max-delete-count" min="1" placeholder="不限制">
+                                    <span class="delete-hint">留空表示删除所有选中的视频</span>
+                                </div>
+                            </div>
+                            
+                            <div class="remote-videos-table-container">
+                                <table id="remote-videos-table">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="select-all-remote" onchange="toggleAllRemoteVideos()"></th>
+                                            <th>序号</th>
+                                            <th>标题</th>
+                                            <th>发布时间</th>
+                                            <th>状态</th>
+                                            <th>播放量</th>
+                                            <th>可删除</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="remote-videos-table-body">
+                                        <tr class="empty-row">
+                                            <td colspan="7" class="empty-cell">
+                                                <i class="ri-inbox-line"></i> 请先获取视频列表
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="delete-controls">
+                                <button id="delete-selected-videos-btn" class="danger-button" onclick="deleteSelectedVideos()" disabled>
+                                    <i class="ri-delete-bin-line"></i> 删除选中视频
+                                </button>
+                                <button id="delete-all-videos-btn" class="danger-button" onclick="deleteAllVideos()">
+                                    <i class="ri-delete-bin-2-line"></i> 删除所有视频
+                                </button>
+                                <div class="delete-warning">
+                                    <i class="ri-error-warning-line"></i> 
+                                    删除操作不可恢复，请谨慎操作！
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 删除状态显示 -->
+                    <div id="delete-status-container" class="hidden">
+                        <h3><i class="ri-timer-line"></i> 删除进度</h3>
+                        <div id="delete-status" class="status-message">
+                            准备删除...
+                        </div>
+                        <div id="delete-progress" class="progress-container">
+                            <div class="progress-bar">
+                                <div id="delete-progress-bar" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span id="delete-progress-text">0 / 0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 新增多账号任务管理 -->
+            <div class="section">
+                <h2><i class="ri-team-line"></i> 多账号任务管理</h2>
+                <div class="multi-task-container">
+                    <div class="task-form">
+                        <h3><i class="ri-add-circle-line"></i> 添加账号任务</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="task-cookie-select"><i class="ri-key-line"></i> 选择账号：</label>
+                                <select id="task-cookie-select">
+                                    <option value="">请选择Cookie</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="task-location"><i class="ri-map-pin-line"></i> 位置：</label>
+                                <input type="text" id="task-location" value="杭州市" placeholder="上传位置">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="task-interval"><i class="ri-time-line"></i> 间隔(分钟)：</label>
+                                <input type="number" id="task-interval" value="5" min="1" max="120" placeholder="上传间隔">
+                                <small class="interval-hint">轮询模式：账号间隔 | 并发模式：视频间隔</small>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="ri-send-plane-line"></i> 发布方式：</label>
+                                <div class="radio-group">
+                                    <label>
+                                        <input type="radio" name="task-publish-type" value="now" checked> 立即发布
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="task-publish-type" value="schedule"> 定时发布
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="task-schedule-container" class="hidden">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="task-publish-date"><i class="ri-calendar-line"></i> 日期：</label>
+                                    <input type="date" id="task-publish-date">
+                                </div>
+                                <div class="form-group">
+                                    <label for="task-publish-time"><i class="ri-time-line"></i> 时间：</label>
+                                    <div class="time-inputs">
+                                        <select id="task-publish-hour"></select>
+                                        <span>:</span>
+                                        <select id="task-publish-minute"></select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button id="add-task-btn" class="primary-button" onclick="addAccountTask()">
+                                <i class="ri-add-line"></i> 添加任务
+                            </button>
+                            <button id="copy-videos-btn" class="secondary-button" onclick="copySelectedVideos()">
+                                <i class="ri-file-copy-line"></i> 复制当前选择
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="task-list">
+                        <h3><i class="ri-list-check"></i> 任务列表</h3>
+                        <div class="task-controls">
+                            <div class="upload-mode">
+                                <label><i class="ri-settings-line"></i> 上传模式：</label>
+                                <div class="radio-group">
+                                    <label title="账号之间轮流上传，间隔时间为账号切换间隔">
+                                        <input type="radio" name="upload-mode" value="sequential" checked> 
+                                        <i class="ri-arrow-right-line"></i> 轮询上传
+                                        <span class="mode-desc">（账号间隔）</span>
+                                    </label>
+                                    <label title="所有账号同时上传，间隔时间为账号内视频间隔">
+                                        <input type="radio" name="upload-mode" value="concurrent"> 
+                                        <i class="ri-share-line"></i> 并发上传
+                                        <span class="mode-desc">（视频间隔）</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="task-actions">
+                                <button id="start-multi-upload-btn" class="primary-button" onclick="startMultiUpload()">
+                                    <i class="ri-play-line"></i> 开始上传
+                                </button>
+                                <button id="stop-multi-upload-btn" class="danger-button hidden" onclick="stopMultiUpload()">
+                                    <i class="ri-stop-line"></i> 停止上传
+                                </button>
+                                <button id="clear-tasks-btn" class="secondary-button" onclick="clearAllTasks()">
+                                    <i class="ri-delete-bin-line"></i> 清空任务
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="task-table-container">
+                            <table id="multi-task-table">
+                                <thead>
+                                    <tr>
+                                        <th>账号</th>
+                                        <th>视频数量</th>
+                                        <th>进度</th>
+                                        <th>当前状态</th>
+                                        <th>位置</th>
+                                        <th>间隔</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="multi-task-table-body">
+                                    <tr class="empty-row">
+                                        <td colspan="7" class="empty-cell">
+                                            <i class="ri-inbox-line"></i> 暂无任务，请添加账号任务
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 新增抖音内容采集模块 -->
+            <div class="section">
+                <h2><i class="ri-download-cloud-line"></i> 抖音内容采集</h2>
+                <div class="content-crawler-container">
+                    <!-- Downloader服务状态 -->
+                    <div class="downloader-status-panel">
+                        <div class="status-header">
+                            <h3><i class="ri-service-line"></i> Downloader服务状态</h3>
+                            <div class="status-controls">
+                                <button id="refresh-downloader-status" class="icon-btn" title="刷新状态">
+                                    <i class="ri-refresh-line"></i>
+                                </button>
+                                <div id="downloader-status-indicator" class="status-indicator offline">
+                                    <i class="ri-close-circle-line"></i>
+                                    <span>离线</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="service-controls">
+                            <button id="start-downloader-btn" class="success-button">
+                                <i class="ri-play-circle-line"></i> 启动服务
+                            </button>
+                            <button id="stop-downloader-btn" class="danger-button" disabled>
+                                <i class="ri-stop-circle-line"></i> 停止服务
+                            </button>
+                            <button id="show-downloader-logs" class="secondary-button" disabled>
+                                <i class="ri-file-text-line"></i> 查看日志
+                            </button>
+                            <div class="service-info">
+                                <small id="downloader-status-text">正在检查服务状态...</small>
+                            </div>
+                        </div>
+                        
+                        <!-- 日志显示区域 -->
+                        <div id="downloader-logs-container" class="hidden">
+                            <div class="logs-header">
+                                <h4><i class="ri-file-text-line"></i> Downloader服务日志</h4>
+                                <div class="logs-controls">
+                                    <button id="clear-logs" class="icon-btn" title="清空日志">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </button>
+                                    <button id="auto-scroll-logs" class="icon-btn active" title="自动滚动">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="logs-content">
+                                <pre id="downloader-logs"></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 功能选项卡 -->
+                    <div class="crawler-tabs">
+                        <button class="tab-btn active" data-tab="search"><i class="ri-search-line"></i> 视频搜索</button>
+                        <button class="tab-btn" data-tab="detail"><i class="ri-file-info-line"></i> 视频详情</button>
+                        <button class="tab-btn" data-tab="account"><i class="ri-user-line"></i> 用户作品</button>
+                        <button class="tab-btn" data-tab="hot"><i class="ri-fire-line"></i> 热榜数据</button>
+                        <button class="tab-btn" data-tab="link"><i class="ri-link"></i> 链接解析</button>
+                    </div>
+
+                    <!-- 搜索功能面板 -->
+                    <div class="tab-content active" id="search-tab">
+                        <h3><i class="ri-search-line"></i> 视频搜索</h3>
+                        <div class="search-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="search-keyword"><i class="ri-text"></i> 搜索关键词：</label>
+                                    <input type="text" id="search-keyword" placeholder="输入要搜索的关键词">
+                                </div>
+                                <div class="form-group">
+                                    <label for="search-pages"><i class="ri-pages-line"></i> 搜索页数：</label>
+                                    <input type="number" id="search-pages" value="5" min="1" max="20">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="search-cookie"><i class="ri-key-line"></i> Cookie（必选）：</label>
+                                    <select id="search-cookie">
+                                        <option value="">请选择Cookie</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="search-proxy"><i class="ri-global-line"></i> 代理（可选）：</label>
+                                    <select id="search-proxy">
+                                        <option value="">不使用代理</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="start-search" class="primary-button">
+                                <i class="ri-search-2-line"></i> 开始搜索
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 视频详情面板 -->
+                    <div class="tab-content" id="detail-tab">
+                        <h3><i class="ri-file-info-line"></i> 获取视频详情</h3>
+                        <div class="detail-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="detail-id"><i class="ri-hashtag"></i> 视频ID：</label>
+                                    <input type="text" id="detail-id" placeholder="输入抖音视频ID">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="detail-cookie"><i class="ri-key-line"></i> Cookie（必选）：</label>
+                                    <select id="detail-cookie">
+                                        <option value="">请选择Cookie</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="detail-proxy"><i class="ri-global-line"></i> 代理（可选）：</label>
+                                    <select id="detail-proxy">
+                                        <option value="">不使用代理</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="get-detail" class="primary-button">
+                                <i class="ri-download-line"></i> 获取详情
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 用户作品面板 -->
+                    <div class="tab-content" id="account-tab">
+                        <h3><i class="ri-user-line"></i> 获取用户作品</h3>
+                        <div class="account-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="account-url"><i class="ri-link"></i> 账号链接：</label>
+                                    <input type="text" id="account-url" placeholder="输入抖音账号链接，如：https://www.douyin.com/user/MS4wLjABAAAA...">
+                                    <small class="input-help">
+                                        <i class="ri-information-line"></i> 
+                                        支持抖音用户主页链接，系统会自动解析用户ID
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="account-tab-type"><i class="ri-folder-line"></i> 作品类型：</label>
+                                    <select id="account-tab-type">
+                                        <option value="post">发布作品</option>
+                                        <option value="like">喜欢作品</option>
+                                        <option value="collection">收藏作品</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="account-pages"><i class="ri-pages-line"></i> 获取页数：</label>
+                                    <input type="number" id="account-pages" value="5" min="1" max="50">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="account-cookie"><i class="ri-key-line"></i> Cookie（必选）：</label>
+                                    <select id="account-cookie">
+                                        <option value="">请选择Cookie</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="account-proxy"><i class="ri-global-line"></i> 代理（可选）：</label>
+                                    <select id="account-proxy">
+                                        <option value="">不使用代理</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="get-account" class="primary-button">
+                                <i class="ri-download-line"></i> 获取作品
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 热榜数据面板 -->
+                    <div class="tab-content" id="hot-tab">
+                        <h3><i class="ri-fire-line"></i> 获取热榜数据</h3>
+                        <div class="hot-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="hot-cookie"><i class="ri-key-line"></i> Cookie（必选）：</label>
+                                    <select id="hot-cookie">
+                                        <option value="">请选择Cookie</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="hot-proxy"><i class="ri-global-line"></i> 代理（可选）：</label>
+                                    <select id="hot-proxy">
+                                        <option value="">不使用代理</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="get-hot" class="primary-button">
+                                <i class="ri-fire-line"></i> 获取热榜
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 链接解析面板 -->
+                    <div class="tab-content" id="link-tab">
+                        <h3><i class="ri-link"></i> 链接解析</h3>
+                        <div class="link-form">
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <label for="link-text"><i class="ri-link"></i> 分享链接或文本：</label>
+                                    <textarea id="link-text" placeholder="粘贴包含抖音分享链接的文本..." rows="3"></textarea>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="link-proxy"><i class="ri-global-line"></i> 代理（可选）：</label>
+                                    <select id="link-proxy">
+                                        <option value="">不使用代理</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="parse-link" class="primary-button">
+                                <i class="ri-external-link-line"></i> 解析链接
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 状态和结果显示区域 -->
+                    <div class="crawler-status">
+                        <div id="crawler-status-message" class="status-message hidden">
+                            <i class="ri-loader-line spinning"></i> 正在处理请求...
+                        </div>
+                        <div id="crawler-progress" class="progress-bar hidden">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <!-- 结果显示区域 -->
+                    <div class="crawler-results">
+                        <div class="results-header">
+                            <h3><i class="ri-file-list-line"></i> 采集结果</h3>
+                            <div class="results-actions">
+                                <button id="export-results" class="secondary-button hidden">
+                                    <i class="ri-download-2-line"></i> 导出数据
+                                </button>
+                                <button id="batch-download" class="primary-button hidden">
+                                    <i class="ri-download-cloud-line"></i> 批量下载
+                                </button>
+                                <button id="clear-results" class="danger-button hidden">
+                                    <i class="ri-delete-bin-line"></i> 清空结果
+                                </button>
+                            </div>
+                        </div>
+                        <div id="results-container" class="results-content">
+                            <div class="empty-results">
+                                <i class="ri-inbox-line"></i>
+                                <p>暂无采集结果</p>
+                                <span>使用上方功能开始采集抖音内容</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="flex: 1; min-width: 380px; display: flex; flex-direction: column; gap: 32px;">
+            <div class="section">
+                <h2><i class="ri-settings-3-line"></i> 上传设置</h2>
+                <div class="upload-settings">
+                    <div class="location-setting">
+                        <label for="location"><i class="ri-map-pin-line"></i> 位置：</label>
+                        <input type="text" id="location" value="杭州市">
+                    </div>
+                    <div class="interval-setting">
+                        <label for="upload-interval"><i class="ri-time-line"></i> 上传间隔：</label>
+                        <input type="number" id="upload-interval" value="5" min="1" max="120">
+                        <span class="tip">轮询模式：账号切换间隔 | 并发模式：视频上传间隔（分钟）</span>
+                    </div>
+                    <div class="publish-setting">
+                        <label><i class="ri-send-plane-line"></i> 发布方式：</label>
+                        <div class="radio-group">
+                            <label for="publish-now">
+                                <input type="radio" id="publish-now" name="publish-type" value="now" checked>
+                                立即发布
+                            </label>
+                            <label for="publish-schedule">
+                                <input type="radio" id="publish-schedule" name="publish-type" value="schedule">
+                                定时发布
+                            </label>
+                        </div>
+                    </div>
+                    <div id="schedule-container" class="hidden">
+                        <div class="date-setting">
+                            <label for="publish-date"><i class="ri-calendar-line"></i> 日期：</label>
+                            <input type="date" id="publish-date">
+                        </div>
+                        <div class="time-setting">
+                            <label for="publish-hour"><i class="ri-time-line"></i> 时间：</label>
+                            <div class="time-inputs">
+                                <select id="publish-hour"></select>
+                                <span>:</span>
+                                <select id="publish-minute"></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="risk-setting">
+                      <label>风控阈值：</label>
+                      <input type="number" id="risk-limit" value="5" min="1" max="100">
+                      <span class="tip">每小时最多上传X个视频，超出将自动延迟</span>
+                    </div>
+                    <button id="start-upload" class="primary-button"><i class="ri-upload-cloud-line"></i> 开始上传</button>
+                </div>
+            </div>
+            <div class="section">
+                <h2><i class="ri-information-line"></i> 上传状态</h2>
+                <div id="upload-status-container">
+                    <div id="upload-status">未开始上传</div>
+                    <div id="countdown-container" class="hidden">
+                        <div class="countdown-title"><i class="ri-timer-line"></i> 下一个视频上传倒计时：</div>
+                        <div id="countdown-timer" class="countdown-timer">00:00:00</div>
+                    </div>
+                    <table id="upload-tasks" class="hidden">
+                        <thead>
+                            <tr>
+                                <th>文件名</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="section">
+              <h2><i class="ri-global-line"></i> 代理管理</h2>
+              <div class="proxy-management">
+                <div class="proxy-form">
+                  <h3><i class="ri-add-line"></i> 添加代理</h3>
+                  <div class="form-grid">
+                    <input type="text" id="proxy-name" placeholder="代理名称">
+                    <input type="text" id="proxy-host" placeholder="主机地址">
+                    <input type="number" id="proxy-port" placeholder="端口">
+                    <select id="proxy-protocol">
+                      <option value="http">HTTP</option>
+                      <option value="https">HTTPS</option>
+                      <option value="socks5">SOCKS5</option>
+                    </select>
+                    <input type="text" id="proxy-username" placeholder="用户名(可选)">
+                    <input type="password" id="proxy-password" placeholder="密码(可选)">
+                  </div>
+                  <button id="add-proxy-btn" class="primary-button"><i class="ri-add-line"></i> 添加代理</button>
+                </div>
+                
+                <div class="proxy-list">
+                  <h3><i class="ri-list-check"></i> 代理列表</h3>
+                  <table id="proxy-table">
+                    <thead>
+                      <tr>
+                        <th>名称</th>
+                        <th>地址</th>
+                        <th>状态</th>
+                        <th>延迟</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                
+                <div class="proxy-assignment">
+                  <h3><i class="ri-links-line"></i> 账号代理查看</h3>
+                  <div class="assignment-info">
+                    <p class="info-text">
+                      <i class="ri-information-line"></i> 
+                      代理在生成Cookie时确定，无法修改。如需更换代理，请删除账号后重新生成。
+                    </p>
+                  </div>
+                  
+                  <table id="assignment-table">
+                    <thead>
+                      <tr>
+                        <th>Cookie</th>
+                        <th>代理</th>
+                        <th>状态</th>
+                        <th>分配时间</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="section">
+              <h2><i class="ri-fingerprint-line"></i> 浏览器指纹管理</h2>
+              <div class="fingerprint-management">
+                <div class="fingerprint-info">
+                  <div class="info-header">
+                    <h3><i class="ri-shield-check-line"></i> 指纹保护状态</h3>
+                    <button id="refresh-fingerprints" class="secondary-button">
+                      <i class="ri-refresh-line"></i> 刷新
+                    </button>
+                  </div>
+                  <div class="info-text">
+                    <i class="ri-information-line"></i> 
+                    每个Cookie账号都有独立的浏览器指纹，有效避免多账号关联检测
+                  </div>
+                </div>
+                
+                <div class="fingerprint-list">
+                  <h3><i class="ri-list-check"></i> 账号指纹列表</h3>
+                  <div class="fingerprint-controls">
+                    <div class="search-box">
+                      <input type="text" id="fingerprint-search" placeholder="搜索Cookie名称...">
+                      <i class="ri-search-line"></i>
+                    </div>
+                    <div class="filter-controls">
+                      <button id="show-all-fingerprints" class="filter-btn active">
+                        <i class="ri-eye-line"></i> 全部
+                      </button>
+                      <button id="show-recent-fingerprints" class="filter-btn">
+                        <i class="ri-time-line"></i> 最近使用
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="fingerprint-table-container">
+                    <table id="fingerprint-table">
+                      <thead>
+                        <tr>
+                          <th><i class="ri-file-line"></i> Cookie</th>
+                          <th><i class="ri-computer-line"></i> User-Agent</th>
+                          <th><i class="ri-aspect-ratio-line"></i> 分辨率</th>
+                          <th><i class="ri-global-line"></i> 时区</th>
+                          <th><i class="ri-translate"></i> 语言</th>
+                          <th><i class="ri-calendar-line"></i> 创建时间</th>
+                          <th><i class="ri-time-line"></i> 最后使用</th>
+                          <th><i class="ri-settings-3-line"></i> 操作</th>
+                        </tr>
+                      </thead>
+                      <tbody id="fingerprint-table-body">
+                        <tr class="loading-row">
+                          <td colspan="8" class="loading-cell">
+                            <i class="ri-loader-line spinning"></i> 正在加载指纹数据...
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div class="fingerprint-stats">
+                    <div class="stat-item">
+                      <span class="stat-label">总指纹数：</span>
+                      <span id="total-fingerprints" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">活跃指纹：</span>
+                      <span id="active-fingerprints" class="stat-value">0</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 指纹详情模态框 -->
+                <div id="fingerprint-detail-modal" class="modal hidden">
+                  <div class="modal-content large">
+                    <div class="modal-header">
+                      <h3><i class="ri-fingerprint-line"></i> 指纹详情</h3>
+                      <button id="close-fingerprint-detail" class="close-btn">
+                        <i class="ri-close-line"></i>
+                      </button>
+                    </div>
+                    <div class="modal-body">
+                      <div class="fingerprint-detail-content">
+                        <div class="detail-section">
+                          <h4><i class="ri-user-line"></i> 基本信息</h4>
+                          <div class="detail-grid">
+                            <div class="detail-item">
+                              <label>Cookie名称:</label>
+                              <span id="detail-cookie-name">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>User-Agent:</label>
+                              <span id="detail-user-agent" class="code-text">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>平台:</label>
+                              <span id="detail-platform">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>语言:</label>
+                              <span id="detail-language">-</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                          <h4><i class="ri-monitor-line"></i> 显示信息</h4>
+                          <div class="detail-grid">
+                            <div class="detail-item">
+                              <label>屏幕分辨率:</label>
+                              <span id="detail-screen-resolution">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>视口大小:</label>
+                              <span id="detail-viewport">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>颜色深度:</label>
+                              <span id="detail-color-depth">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>时区:</label>
+                              <span id="detail-timezone">-</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                          <h4><i class="ri-cpu-line"></i> 硬件信息</h4>
+                          <div class="detail-grid">
+                            <div class="detail-item">
+                              <label>CPU核心数:</label>
+                              <span id="detail-cpu-cores">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>内存大小:</label>
+                              <span id="detail-memory">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>WebGL供应商:</label>
+                              <span id="detail-webgl-vendor">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>WebGL渲染器:</label>
+                              <span id="detail-webgl-renderer" class="code-text">-</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                          <h4><i class="ri-shield-check-line"></i> 安全特性</h4>
+                          <div class="detail-grid">
+                            <div class="detail-item">
+                              <label>Canvas噪声:</label>
+                              <span id="detail-canvas-noise">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>插件数量:</label>
+                              <span id="detail-plugins-count">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>字体数量:</label>
+                              <span id="detail-fonts-count">-</span>
+                            </div>
+                            <div class="detail-item">
+                              <label>Do Not Track:</label>
+                              <span id="detail-dnt">-</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="detail-actions">
+                          <button id="regenerate-fingerprint" class="danger-button">
+                            <i class="ri-refresh-line"></i> 重新生成指纹
+                          </button>
+                          <button id="copy-fingerprint-json" class="secondary-button">
+                            <i class="ri-file-copy-line"></i> 复制JSON数据
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="section">
+              <h2><i class="ri-history-line"></i> 上传历史</h2>
+              <div class="dashboard">
+                <div class="dash-item">
+                  <div class="dash-label">总上传</div>
+                  <div class="dash-value" id="dash-total">0</div>
+                </div>
+                <div class="dash-item">
+                  <div class="dash-label">成功</div>
+                  <div class="dash-value" id="dash-success">0</div>
+                </div>
+                <div class="dash-item">
+                  <div class="dash-label">失败</div>
+                  <div class="dash-value" id="dash-fail">0</div>
+                </div>
+                <div class="dash-item">
+                  <div class="dash-label">成功率</div>
+                  <div class="dash-value" id="dash-rate">0%</div>
+                </div>
+                <div class="dash-item">
+                  <div class="dash-label">最近上传</div>
+                  <div class="dash-value" id="dash-last">-</div>
+                </div>
+              </div>
+              <div>
+                <label>账号：</label>
+                <select id="history-cookie-select"></select>
+              </div>
+              <table id="history-table">
+                <thead>
+                  <tr>
+                    <th>文件名</th><th>时间</th><th>状态</th><th>原因</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <button id="export-history">导出CSV</button>
+            </div>
+        </div>
+    </div>
+    <footer>
+        <p>抖音视频上传工具 &copy; 2025</p>
+    </footer>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/debug.js"></script>
+    <script src="/static/js/debug-enhanced.js"></script>
+    <script src="/static/js/debug-quick.js"></script>
+    <script>
+    // 加载cookie账号列表
+    function loadHistoryCookies() {
+      fetch('/api/cookies').then(r=>r.json()).then(data=>{
+        const cookies = data.cookies || [];
+        let sel = document.getElementById('history-cookie-select');
+        let currentValue = sel.value;
+        sel.innerHTML = cookies.map(cookie=>`<option value="${cookie.filename}">${cookie.name}${cookie.expired ? ' (已过期)' : ''}</option>`).join('');
+        // 尝试保持之前选中的值
+        const cookieFilenames = cookies.map(c => c.filename);
+        if (cookieFilenames.includes(currentValue)) {
+          sel.value = currentValue;
+        }
+        sel.onchange = loadHistory;
+        loadHistory();
+      });
+    }
+    loadHistoryCookies();
+    function loadHistory() {
+      let cookie = document.getElementById('history-cookie-select').value;
+      fetch('/api/history?cookie='+cookie).then(r=>r.json()).then(data=>{
+        // 仪表盘数据
+        let total = data.history.length;
+        let success = data.success;
+        let fail = data.fail;
+        let rate = total ? Math.round(success/total*100) : 0;
+        let last = total ? data.history[0].upload_time : '-';
+        document.getElementById('dash-total').innerText = total;
+        document.getElementById('dash-success').innerText = success;
+        document.getElementById('dash-fail').innerText = fail;
+        document.getElementById('dash-rate').innerText = rate + '%';
+        document.getElementById('dash-last').innerText = last;
+        // 明细表格
+        let tbody = document.getElementById('history-table').querySelector('tbody');
+        tbody.innerHTML = data.history.map(h=>`
+          <tr>
+            <td>${h.filename}</td>
+            <td>${h.upload_time}</td>
+            <td style="color:${h.status=='success'?'#00c48c':'#ff5252'}">${h.status=='success'?'成功':'失败'}</td>
+            <td>${h.reason||''}</td>
+          </tr>
+        `).join('');
+      });
+    }
+    document.getElementById('export-history').onclick = function() {
+      let rows = Array.from(document.querySelectorAll('#history-table tr')).map(tr=>Array.from(tr.children).map(td=>td.innerText).join(',')).join('\n');
+      let blob = new Blob([rows], {type:'text/csv'});
+      let a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'upload_history.csv';
+      a.click();
+    };
+    </script>
+    <style>
+    .dashboard {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .dash-item {
+      background: #23272f;
+      border-radius: 12px;
+      padding: 18px 24px;
+      min-width: 90px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(26,35,126,0.08);
+    }
+    .dash-label {
+      color: #b0b8c1;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .dash-value {
+      color: #fff;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    </style>
+    
+    <!-- 悬浮刷新按钮 -->
+    <div id="floating-refresh-btn" class="floating-refresh" onclick="refreshAllData()" title="强制重载所有数据">
+        <i class="ri-refresh-line"></i>
+        <span class="tooltip">刷新数据</span>
+    </div>
+    
+</body>
+</html> 

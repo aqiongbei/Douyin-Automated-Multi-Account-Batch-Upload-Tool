@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  douyin-upload:
+    # 使用自定义镜像
+    image: douyin-upload:latest
+    container_name: douyin-upload-auto
+    ports:
+      - "0.0.0.0:5000:5000"    # Web界面端口（外网访问）
+      - "0.0.0.0:4701:4701"    # 额外端口（外网访问）
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1  # 确保Python输出不被缓冲
+      - DOCKER_ENV=true     # 标记Docker环境
+      - DISPLAY=:99         # 虚拟显示器（备用）
+    volumes:
+      # 挂载整个项目目录到容器
+      - .:/workspace
+      # 确保这些目录存在并正确挂载
+      - ./cookie:/workspace/cookie
+      - ./videos:/workspace/videos
+      - ./downloads:/workspace/downloads
+      - ./database:/workspace/database
+      - ./logs:/workspace/logs
+    working_dir: /workspace
+    # 容器启动时直接运行app.py
+    command: python app.py
+    networks:
+      - douyin-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"] 
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  douyin-net:
+    driver: bridge 

@@ -1,0 +1,54 @@
+#Binrary optmized
+__pycache__/
+*/__pycache__/
+
+# Downloads folder
+downloads/
+
+# Cookie files
+cookie/
+
+# Database files
+database/
+
+# Videos folder
+videos/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Build files
+dist/
+build/
+*.egg-info/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Backup files
+*.bak
+*.backup
