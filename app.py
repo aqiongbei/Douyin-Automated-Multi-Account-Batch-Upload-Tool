@@ -4694,8 +4694,18 @@ def douyin_download_videos():
                             safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
                             if len(safe_title) > 50:
                                 safe_title = safe_title[:50]
-                            filename = f"{safe_title}_{aweme_id}.mp4"
+                            filename = f"{safe_title}.mp4"
                             filepath = os.path.join(downloads_dir, filename)
+                            
+                            # 如果文件已存在，添加数字后缀
+                            counter = 1
+                            while os.path.exists(filepath):
+                                base_name = safe_title
+                                if len(base_name) > 45:  # 为数字后缀预留空间
+                                    base_name = base_name[:45]
+                                filename = f"{base_name}_{counter}.mp4"
+                                filepath = os.path.join(downloads_dir, filename)
+                                counter += 1
                             
                             # 准备请求头，包含Cookie
                             headers = {
