@@ -47,6 +47,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const refreshScreenshotBtn = document.getElementById('refresh-screenshot');
     const screenshotTimestamp = document.getElementById('screenshot-timestamp');
     
+    // 缩放和平移控制元素
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+    const panResetBtn = document.getElementById('pan-reset');
+    const zoomLevelSpan = document.getElementById('zoom-level');
+    const screenshotViewport = document.getElementById('screenshot-viewport');
+    
     // 键盘输入控制元素
     const textInput = document.getElementById('text-input');
     const sendTextBtn = document.getElementById('send-text');
@@ -59,6 +67,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // WebSocket和浏览器视图相关变量
     let socket = null;
     let currentBrowserSession = null;
+    
+    // 缩放和平移相关变量
+    let currentZoom = 1.0;
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let scrollStart = { x: 0, y: 0 };
     
     // 暴露变量到全局作用域以便调试
     window.currentBrowserSession = () => currentBrowserSession;
@@ -1203,14 +1217,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // 获取点击坐标（相对于图片）
+            // 获取点击坐标（相对于图片，考虑缩放）
             const rect = browserScreenshot.getBoundingClientRect();
-            const scaleX = browserScreenshot.naturalWidth / rect.width;
-            const scaleY = browserScreenshot.naturalHeight / rect.height;
+            const scaleX = browserScreenshot.naturalWidth / (rect.width / currentZoom);
+            const scaleY = browserScreenshot.naturalHeight / (rect.height / currentZoom);
             
             // 计算在实际浏览器中的坐标
-            const browserX = Math.round((event.clientX - rect.left) * scaleX);
-            const browserY = Math.round((event.clientY - rect.top) * scaleY);
+            const browserX = Math.round((event.clientX - rect.left) * scaleX / currentZoom);
+            const browserY = Math.round((event.clientY - rect.top) * scaleY / currentZoom);
             
             // 计算在显示图片中的坐标（用于动画显示）
             const displayX = event.clientX - rect.left;
@@ -1234,13 +1248,132 @@ document.addEventListener('DOMContentLoaded', function() {
         browserScreenshot.title = '点击此处与浏览器交互';
     }
     
+    // ============ 缩放和平移功能 ============
+    
+    // 初始化缩放和平移功能
+    function initZoomAndPan() {
+        if (!zoomInBtn || !zoomOutBtn || !zoomResetBtn || !panResetBtn) {
+            console.log('缩放控制按钮未找到，跳过初始化');
+            return;
+        }
+        
+        // 缩放按钮事件
+        zoomInBtn.addEventListener('click', function() {
+            zoomIn();
+        });
+        
+        zoomOutBtn.addEventListener('click', function() {
+            zoomOut();
+        });
+        
+        zoomResetBtn.addEventListener('click', function() {
+            resetZoom();
+        });
+        
+        panResetBtn.addEventListener('click', function() {
+            resetPan();
+        });
+        
+        // 截图视口拖拽事件
+        if (screenshotViewport) {
+            screenshotViewport.addEventListener('mousedown', function(e) {
+                if (e.button === 0) { // 左键
+                    isDragging = true;
+                    dragStart.x = e.clientX;
+                    dragStart.y = e.clientY;
+                    scrollStart.x = screenshotViewport.scrollLeft;
+                    scrollStart.y = screenshotViewport.scrollTop;
+                    screenshotViewport.style.cursor = 'grabbing';
+                    e.preventDefault();
+                }
+            });
+            
+            screenshotViewport.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    const deltaX = e.clientX - dragStart.x;
+                    const deltaY = e.clientY - dragStart.y;
+                    screenshotViewport.scrollLeft = scrollStart.x - deltaX;
+                    screenshotViewport.scrollTop = scrollStart.y - deltaY;
+                }
+            });
+            
+            screenshotViewport.addEventListener('mouseup', function(e) {
+                if (isDragging) {
+                    isDragging = false;
+                    screenshotViewport.style.cursor = 'grab';
+                }
+            });
+            
+            screenshotViewport.addEventListener('mouseleave', function(e) {
+                if (isDragging) {
+                    isDragging = false;
+                    screenshotViewport.style.cursor = 'grab';
+                }
+            });
+            
+            // 鼠标滚轮缩放
+            screenshotViewport.addEventListener('wheel', function(e) {
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    if (e.deltaY < 0) {
+                        zoomIn();
+                    } else {
+                        zoomOut();
+                    }
+                }
+            });
+        }
+    }
+    
+    // 放大
+    function zoomIn() {
+        if (currentZoom < 3.0) {
+            currentZoom = Math.min(3.0, currentZoom + 0.2);
+            applyZoom();
+        }
+    }
+    
+    // 缩小
+    function zoomOut() {
+        if (currentZoom > 0.5) {
+            currentZoom = Math.max(0.5, currentZoom - 0.2);
+            applyZoom();
+        }
+    }
+    
+    // 重置缩放
+    function resetZoom() {
+        currentZoom = 1.0;
+        applyZoom();
+    }
+    
+    // 重置位置
+    function resetPan() {
+        if (screenshotViewport) {
+            screenshotViewport.scrollLeft = 0;
+            screenshotViewport.scrollTop = 0;
+        }
+    }
+    
+    // 应用缩放
+    function applyZoom() {
+        if (browserScreenshot && zoomLevelSpan) {
+            browserScreenshot.style.transform = `scale(${currentZoom})`;
+            zoomLevelSpan.textContent = Math.round(currentZoom * 100) + '%';
+            
+            // 更新按钮状态
+            if (zoomInBtn) zoomInBtn.disabled = currentZoom >= 3.0;
+            if (zoomOutBtn) zoomOutBtn.disabled = currentZoom <= 0.5;
+        }
+    }
+    
     // 显示点击位置的视觉反馈
     function showClickFeedback(x, y) {
-        // 获取截图容器
-        const container = document.getElementById('browser-screenshot-container');
+        // 获取截图视口容器
+        const container = screenshotViewport || document.getElementById('screenshot-viewport');
         
         // 确保容器设置为相对定位
-        if (container.style.position !== 'relative') {
+        if (container && container.style.position !== 'relative') {
             container.style.position = 'relative';
         }
         
@@ -1248,19 +1381,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const feedback = document.createElement('div');
         feedback.className = 'click-feedback';
         
-        // 获取图片在容器中的位置偏移
-        const containerRect = container.getBoundingClientRect();
-        const imageRect = browserScreenshot.getBoundingClientRect();
+        // 计算点击反馈位置（考虑滚动和缩放）
+        const scrollLeft = container.scrollLeft || 0;
+        const scrollTop = container.scrollTop || 0;
         
-        // 计算图片相对于容器的偏移量
-        const offsetX = imageRect.left - containerRect.left;
-        const offsetY = imageRect.top - containerRect.top;
-        
-        // 使用容器内的绝对定位，加上图片的偏移量
+        // 使用容器内的绝对定位
         feedback.style.cssText = `
             position: absolute;
-            left: ${offsetX + x - 10}px;
-            top: ${offsetY + y - 10}px;
+            left: ${x - 10 + scrollLeft}px;
+            top: ${y - 10 + scrollTop}px;
             width: 20px;
             height: 20px;
             border: 3px solid #007acc;
@@ -1283,12 +1412,11 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('点击反馈位置调试信息:', {
             originalX: x,
             originalY: y,
-            offsetX: offsetX,
-            offsetY: offsetY,
-            finalX: offsetX + x - 10,
-            finalY: offsetY + y - 10,
-            containerRect: containerRect,
-            imageRect: imageRect
+            scrollLeft: scrollLeft,
+            scrollTop: scrollTop,
+            finalX: x - 10 + scrollLeft,
+            finalY: y - 10 + scrollTop,
+            currentZoom: currentZoom
         });
         
         // 动画结束后移除元素
@@ -1524,6 +1652,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 在DOMContentLoaded中初始化键盘控制
     initKeyboardControls();
+    
+    // 初始化缩放和平移功能
+    initZoomAndPan();
     
     // ============ 浏览器指纹管理功能 ============
     

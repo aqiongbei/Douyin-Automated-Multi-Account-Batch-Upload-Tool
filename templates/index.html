@@ -71,12 +71,36 @@
                             <i class="ri-loader-line spinning"></i> 正在启动浏览器...
                         </div>
                         <div id="browser-screenshot-container" class="screenshot-container">
-                            <img id="browser-screenshot" src="" alt="浏览器截图" />
-                            <div id="screenshot-overlay" class="screenshot-overlay">
-                                <div class="overlay-content">
-                                    <i class="ri-eye-line"></i>
-                                    <p>请在弹出的浏览器窗口中完成登录操作</p>
-                                    <p>这里显示的是浏览器的实时画面</p>
+                            <!-- 添加缩放和滑动控制器 -->
+                            <div class="screenshot-controls">
+                                <div class="zoom-controls">
+                                    <button id="zoom-out" class="zoom-btn" title="缩小">
+                                        <i class="ri-zoom-out-line"></i>
+                                    </button>
+                                    <span id="zoom-level">100%</span>
+                                    <button id="zoom-in" class="zoom-btn" title="放大">
+                                        <i class="ri-zoom-in-line"></i>
+                                    </button>
+                                    <button id="zoom-reset" class="zoom-btn" title="重置">
+                                        <i class="ri-aspect-ratio-line"></i>
+                                    </button>
+                                </div>
+                                <div class="pan-controls">
+                                    <span class="pan-label">拖拽查看：</span>
+                                    <button id="pan-reset" class="zoom-btn" title="重置位置">
+                                        <i class="ri-home-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- 可滚动的截图容器 -->
+                            <div id="screenshot-viewport" class="screenshot-viewport">
+                                <img id="browser-screenshot" src="" alt="浏览器截图" />
+                                <div id="screenshot-overlay" class="screenshot-overlay">
+                                    <div class="overlay-content">
+                                        <i class="ri-eye-line"></i>
+                                        <p>请在弹出的浏览器窗口中完成登录操作</p>
+                                        <p>这里显示的是浏览器的实时画面</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
