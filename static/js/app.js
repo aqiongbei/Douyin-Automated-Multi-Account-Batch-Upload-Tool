@@ -4352,7 +4352,7 @@ ${videoList}${moreVideos}`);
     function loadCrawlerOptions() {
         // 加载Cookie选项
         const cookieSelects = [
-            'search-cookie', 'detail-cookie', 'account-cookie', 'hot-cookie'
+            'search-cookie', 'detail-cookie', 'account-cookie', 'hot-cookie', 'download-cookie'
         ];
         
         fetch('/api/cookies')
@@ -4378,7 +4378,7 @@ ${videoList}${moreVideos}`);
         
         // 加载代理选项
         const proxySelects = [
-            'search-proxy', 'detail-proxy', 'account-proxy', 'hot-proxy', 'link-proxy'
+            'search-proxy', 'detail-proxy', 'account-proxy', 'hot-proxy', 'link-proxy', 'download-proxy'
         ];
         
         fetch('/api/proxies')
@@ -4407,7 +4407,7 @@ ${videoList}${moreVideos}`);
         // 先移除可能存在的事件监听器，避免重复绑定
         const elements = [
             'start-search', 'get-detail', 'get-account', 'get-hot', 'parse-link',
-            'export-results', 'batch-download', 'clear-results'
+            'export-results', 'batch-download', 'clear-results', 'confirm-download', 'cancel-download'
         ];
         
         elements.forEach(id => {
@@ -4443,6 +4443,24 @@ ${videoList}${moreVideos}`);
         
         const clearBtn = document.getElementById('clear-results');
         if (clearBtn) clearBtn.addEventListener('click', clearResults);
+        
+        // 下载设置面板事件监听器
+        const confirmDownloadBtn = document.getElementById('confirm-download');
+        if (confirmDownloadBtn) confirmDownloadBtn.addEventListener('click', confirmDownload);
+        
+        const cancelDownloadBtn = document.getElementById('cancel-download');
+        if (cancelDownloadBtn) cancelDownloadBtn.addEventListener('click', cancelDownload);
+        
+        // 监听下载Cookie选择变化，启用/禁用确认按钮
+        const downloadCookieSelect = document.getElementById('download-cookie');
+        if (downloadCookieSelect) {
+            downloadCookieSelect.addEventListener('change', function() {
+                const confirmBtn = document.getElementById('confirm-download');
+                if (confirmBtn) {
+                    confirmBtn.disabled = !this.value;
+                }
+            });
+        }
     }
     
     // 显示采集状态
@@ -5046,7 +5064,7 @@ ${videoList}${moreVideos}`);
         showSuccessMessage('数据导出成功！');
     }
     
-    // 批量下载
+    // 批量下载 - 显示下载设置面板
     function batchDownload() {
         const selectedCheckboxes = document.querySelectorAll('.result-checkbox:checked');
         if (selectedCheckboxes.length === 0) {
@@ -5068,28 +5086,51 @@ ${videoList}${moreVideos}`);
             return;
         }
         
-        // 获取当前的cookie和代理设置
-        const cookieSelect = document.getElementById('search-cookie');
-        const proxySelect = document.getElementById('search-proxy');
-        const cookie = cookieSelect ? cookieSelect.value : '';
-        const proxy = proxySelect ? proxySelect.value : '';
+        // 存储选中的视频数据
+        window.selectedDownloadVideos = selectedVideos;
         
-        if (!cookie) {
+        // 显示下载设置面板
+        const settingsPanel = document.getElementById('download-settings-panel');
+        settingsPanel.classList.remove('hidden');
+        
+        // 更新下载按钮文本
+        const confirmBtn = document.getElementById('confirm-download');
+        confirmBtn.textContent = `确认下载选中的 ${selectedVideos.length} 个视频`;
+        
+        // 滚动到设置面板
+        settingsPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // 确认下载选中的视频
+    function confirmDownload() {
+        const downloadCookie = document.getElementById('download-cookie').value;
+        const downloadProxy = document.getElementById('download-proxy').value;
+        
+        if (!downloadCookie) {
             alert('请先选择Cookie！下载视频必须使用Cookie才能正常工作。');
             return;
         }
         
-        if (!confirm(`确定要下载 ${selectedVideos.length} 个视频吗？\n视频将保存到 downloads 文件夹中。`)) {
+        if (!window.selectedDownloadVideos || window.selectedDownloadVideos.length === 0) {
+            alert('没有选中的视频可下载！');
             return;
         }
         
+        const videosCount = window.selectedDownloadVideos.length;
+        if (!confirm(`确定要下载 ${videosCount} 个视频吗？\n视频将保存到 downloads 文件夹中。`)) {
+            return;
+        }
+        
+        // 隐藏设置面板
+        document.getElementById('download-settings-panel').classList.add('hidden');
+        
         // 显示下载状态
-        showCrawlerStatus(`正在下载 ${selectedVideos.length} 个视频，请稍候...`);
+        showCrawlerStatus(`正在下载 ${videosCount} 个视频，请稍候...`);
         
         const downloadData = {
-            videos: selectedVideos,
-            cookie: cookie,
-            proxy: proxy
+            videos: window.selectedDownloadVideos,
+            cookie: downloadCookie,
+            proxy: downloadProxy
         };
         
         fetch('/api/douyin/download', {
@@ -5144,7 +5185,19 @@ ${videoList}${moreVideos}`);
             showCompletionStatus('❌ 下载失败，请检查网络连接', 'error', 5000);
             console.error('下载失败:', error);
             alert('下载失败，请检查网络连接和Downloader服务状态');
+        })
+        .finally(() => {
+            // 清理选中的视频数据
+            window.selectedDownloadVideos = null;
         });
+    }
+    
+    // 取消下载
+    function cancelDownload() {
+        // 隐藏设置面板
+        document.getElementById('download-settings-panel').classList.add('hidden');
+        // 清理选中的视频数据
+        window.selectedDownloadVideos = null;
     }
     
     // 清空结果
@@ -5191,14 +5244,25 @@ ${videoList}${moreVideos}`);
             };
         }
         
-        // 获取当前的cookie和代理设置
-        const cookieSelect = document.getElementById('search-cookie');
-        const proxySelect = document.getElementById('search-proxy');
-        const cookie = cookieSelect ? cookieSelect.value : '';
-        const proxy = proxySelect ? proxySelect.value : '';
+        // 优先使用下载设置面板的Cookie，否则使用搜索设置的Cookie
+        let cookie = '';
+        let proxy = '';
+        
+        const downloadCookieSelect = document.getElementById('download-cookie');
+        const downloadProxySelect = document.getElementById('download-proxy');
+        const searchCookieSelect = document.getElementById('search-cookie');
+        const searchProxySelect = document.getElementById('search-proxy');
+        
+        if (downloadCookieSelect && downloadCookieSelect.value) {
+            cookie = downloadCookieSelect.value;
+            proxy = downloadProxySelect ? downloadProxySelect.value : '';
+        } else if (searchCookieSelect && searchCookieSelect.value) {
+            cookie = searchCookieSelect.value;
+            proxy = searchProxySelect ? searchProxySelect.value : '';
+        }
         
         if (!cookie) {
-            alert('请先选择Cookie！下载视频必须使用Cookie才能正常工作。');
+            alert('请先选择Cookie！下载视频必须使用Cookie才能正常工作。\n您可以在搜索设置或批量下载设置中选择Cookie。');
             return;
         }
         

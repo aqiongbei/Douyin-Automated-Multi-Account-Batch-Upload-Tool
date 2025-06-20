@@ -764,6 +764,39 @@
                                 </button>
                             </div>
                         </div>
+                        
+                        <!-- 批量下载设置面板 -->
+                        <div id="download-settings-panel" class="download-settings hidden">
+                            <div class="download-form">
+                                <h4><i class="ri-settings-4-line"></i> 批量下载设置</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="download-cookie"><i class="ri-key-line"></i> 选择Cookie（必选）：</label>
+                                        <select id="download-cookie">
+                                            <option value="">请选择用于下载的Cookie</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="download-proxy"><i class="ri-global-line"></i> 代理设置（可选）：</label>
+                                        <select id="download-proxy">
+                                            <option value="">不使用代理</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="download-note">
+                                    <i class="ri-information-line"></i>
+                                    <span>选择要下载的视频后，请先设置Cookie，然后点击"确认下载"按钮</span>
+                                </div>
+                                <div class="download-actions">
+                                    <button id="confirm-download" class="primary-button" disabled>
+                                        <i class="ri-download-cloud-line"></i> 确认下载选中项
+                                    </button>
+                                    <button id="cancel-download" class="secondary-button">
+                                        <i class="ri-close-line"></i> 取消
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <div id="results-container" class="results-content">
                             <div class="empty-results">
                                 <i class="ri-inbox-line"></i>
