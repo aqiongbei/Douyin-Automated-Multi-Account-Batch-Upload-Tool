@@ -746,6 +746,27 @@
                         <div id="crawler-progress" class="progress-bar hidden">
                             <div class="progress-fill"></div>
                         </div>
+                        
+                        <!-- 下载进度显示 -->
+                        <div id="download-progress-message" class="status-message hidden">
+                            <div class="progress-content">
+                                <div class="progress-info">
+                                    <i class="ri-download-cloud-line"></i>
+                                    <span id="download-progress-text">准备下载...</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar">
+                                        <div id="download-progress-bar" class="progress-fill"></div>
+                                    </div>
+                                    <span id="download-progress-percent">0%</span>
+                                </div>
+                                <div class="progress-stats">
+                                    <span id="download-success-count">成功: 0</span>
+                                    <span id="download-failed-count">失败: 0</span>
+                                    <span id="download-current-total">0 / 0</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 结果显示区域 -->

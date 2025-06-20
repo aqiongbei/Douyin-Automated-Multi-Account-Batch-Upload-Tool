@@ -4512,10 +4512,30 @@ def douyin_download_videos():
                     failed_videos = []
                     download_results = []
                     
+                    # 发送下载开始状态
+                    socketio.emit('download_progress', {
+                        'current': 0,
+                        'total': total_videos,
+                        'status': 'started',
+                        'message': f'开始下载 {total_videos} 个视频...',
+                        'success_count': 0,
+                        'failed_count': 0
+                    })
+                    
                     # 逐个下载视频
                     for i, video in enumerate(videos):
                         download_url = None  # 为每个视频初始化download_url
                         try:
+                            # 发送下载进度更新
+                            socketio.emit('download_progress', {
+                                'current': i + 1,
+                                'total': total_videos,
+                                'status': 'downloading',
+                                'message': f'正在下载第 {i+1} 个视频，共 {total_videos} 个',
+                                'success_count': success_count,
+                                'failed_count': len(failed_videos)
+                            })
+                            
                             douyin_logger.info(f"处理第 {i+1} 个视频: {video}")
                             # 打印视频数据的键名，帮助调试
                             douyin_logger.info(f"视频数据键名: {list(video.keys()) if isinstance(video, dict) else '非字典类型'}")
@@ -4657,23 +4677,84 @@ def douyin_download_videos():
                                         })
                                         add_log("SUCCESS", f"视频下载成功: {title}")
                                         douyin_logger.info(f"视频下载成功: {title} -> {filename}")
+                                        
+                                        # 发送下载成功的进度更新
+                                        socketio.emit('download_progress', {
+                                            'current': i + 1,
+                                            'total': total_videos,
+                                            'status': 'success',
+                                            'message': f'第 {i+1} 个视频下载成功: {title}',
+                                            'success_count': success_count,
+                                            'failed_count': len(failed_videos),
+                                            'video_title': title
+                                        })
                                     else:
                                         failed_videos.append({'video': title, 'reason': f'下载失败，状态码: {response.status_code}'})
                                         douyin_logger.warning(f"下载失败，状态码: {response.status_code}, URL: {download_url if 'download_url' in locals() else 'unknown'}")
+                                        
+                                        # 发送下载失败的进度更新
+                                        socketio.emit('download_progress', {
+                                            'current': i + 1,
+                                            'total': total_videos,
+                                            'status': 'failed',
+                                            'message': f'第 {i+1} 个视频下载失败: {title}',
+                                            'success_count': success_count,
+                                            'failed_count': len(failed_videos),
+                                            'video_title': title,
+                                            'error': f'状态码: {response.status_code}'
+                                        })
                                 except Exception as download_error:
                                     failed_videos.append({'video': title, 'reason': f'下载异常: {str(download_error)}'})
                                     douyin_logger.error(f"下载异常: {str(download_error)}")
+                                    
+                                    # 发送下载异常的进度更新
+                                    socketio.emit('download_progress', {
+                                        'current': i + 1,
+                                        'total': total_videos,
+                                        'status': 'failed',
+                                        'message': f'第 {i+1} 个视频下载异常: {title}',
+                                        'success_count': success_count,
+                                        'failed_count': len(failed_videos),
+                                        'video_title': title,
+                                        'error': str(download_error)
+                                    })
                         
                         except Exception as e:
                             video_title = title if 'title' in locals() else f'视频_{i+1}'
                             failed_videos.append({'video': video_title, 'reason': str(e)})
                             douyin_logger.error(f"处理视频失败: {str(e)}")
                             douyin_logger.error(f"错误详情 - 视频: {video}, 变量状态: download_url={'已定义' if 'download_url' in locals() else '未定义'}")
+                            
+                            # 发送处理失败的进度更新
+                            socketio.emit('download_progress', {
+                                'current': i + 1,
+                                'total': total_videos,
+                                'status': 'failed',
+                                'message': f'第 {i+1} 个视频处理失败: {video_title}',
+                                'success_count': success_count,
+                                'failed_count': len(failed_videos),
+                                'video_title': video_title,
+                                'error': str(e)
+                            })
                     
                     # 返回下载结果
                     result_message = f"下载完成！成功: {success_count}/{total_videos}"
                     if failed_videos:
                         result_message += f"，失败: {len(failed_videos)} 个"
+                    
+                    add_log("INFO", result_message)
+                    douyin_logger.info(result_message)
+                    
+                    # 发送最终完成状态
+                    socketio.emit('download_progress', {
+                        'current': total_videos,
+                        'total': total_videos,
+                        'status': 'completed',
+                        'message': result_message,
+                        'success_count': success_count,
+                        'failed_count': len(failed_videos),
+                        'failed_videos': failed_videos
+                    })
                     
                     return {
                         'success': True,

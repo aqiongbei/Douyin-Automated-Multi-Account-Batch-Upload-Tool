@@ -4117,3 +4117,84 @@ input[type="password"]:focus {
         justify-content: center;
     }
 }
+
+/* 下载进度显示样式 */
+#download-progress-message:not(.hidden) {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* 确保hidden类的优先级 */
+#download-progress-message.hidden {
+    display: none !important;
+}
+
+#download-progress-message.status-message.success:not(.hidden) {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+#download-progress-message.status-message.error:not(.hidden) {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+}
+
+.progress-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.progress-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.progress-info i {
+    font-size: 18px;
+}
+
+.progress-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progress-bar-container .progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-container .progress-fill {
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+#download-progress-percent {
+    font-weight: 600;
+    min-width: 45px;
+    text-align: right;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.progress-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}

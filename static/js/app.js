@@ -1083,6 +1083,11 @@ document.addEventListener('DOMContentLoaded', function() {
             handlePermissionVideoListProgress(data);
         });
         
+        // 下载进度事件
+        socket.on('download_progress', function(data) {
+            handleDownloadProgress(data);
+        });
+        
         // 通用错误事件处理
         socket.on('error', function(data) {
             console.error('WebSocket错误:', data);
@@ -4123,6 +4128,81 @@ ${videoList}${moreVideos}`);
         }
         console.log('权限视频列表加载进度:', data.status);
     }
+    
+    // 处理下载进度更新
+    function handleDownloadProgress(data) {
+        const progressMessage = document.getElementById('download-progress-message');
+        const progressText = document.getElementById('download-progress-text');
+        const progressBar = document.getElementById('download-progress-bar');
+        const progressPercent = document.getElementById('download-progress-percent');
+        const successCount = document.getElementById('download-success-count');
+        const failedCount = document.getElementById('download-failed-count');
+        const currentTotal = document.getElementById('download-current-total');
+        
+        if (!progressMessage) return;
+        
+        // 根据状态更新样式
+        progressMessage.className = 'status-message';
+        switch (data.status) {
+            case 'started':
+                progressMessage.classList.add('info');
+                progressMessage.classList.remove('hidden');
+                break;
+            case 'downloading':
+                progressMessage.classList.add('info');
+                break;
+            case 'success':
+                // 单个视频成功时保持info样式，完成时改为success
+                break;
+            case 'failed':
+                // 单个视频失败时显示警告色，但不改变整体状态
+                break;
+            case 'completed':
+                progressMessage.classList.add('success');
+                progressMessage.classList.remove('info');
+                
+                // 3秒后自动隐藏
+                setTimeout(() => {
+                    progressMessage.classList.add('hidden');
+                }, 3000);
+                break;
+        }
+        
+        // 更新文本内容
+        if (progressText) {
+            progressText.textContent = data.message || '下载中...';
+        }
+        
+        // 更新进度条
+        if (data.total > 0) {
+            const percentage = Math.round((data.current / data.total) * 100);
+            if (progressBar) {
+                progressBar.style.width = percentage + '%';
+            }
+            if (progressPercent) {
+                progressPercent.textContent = percentage + '%';
+            }
+        }
+        
+        // 更新统计信息
+        if (successCount) {
+            successCount.textContent = `成功: ${data.success_count || 0}`;
+        }
+        if (failedCount) {
+            failedCount.textContent = `失败: ${data.failed_count || 0}`;
+        }
+        if (currentTotal) {
+            currentTotal.textContent = `${data.current || 0} / ${data.total || 0}`;
+        }
+        
+        // 如果有视频标题，在控制台输出详细信息
+        if (data.video_title) {
+            console.log(`下载进度: ${data.video_title} - ${data.status}`);
+            if (data.error) {
+                console.warn(`下载错误: ${data.error}`);
+            }
+        }
+    }
 
 
     
@@ -4309,6 +4389,25 @@ ${videoList}${moreVideos}`);
     
     // 初始化Downloader服务控制
     initDownloaderService();
+    
+    // 确保下载进度面板初始隐藏
+    const downloadProgressMessage = document.getElementById('download-progress-message');
+    if (downloadProgressMessage) {
+        downloadProgressMessage.classList.add('hidden');
+    }
+    
+    // 确保采集状态消息初始隐藏
+    const crawlerStatusMessage = document.getElementById('crawler-status-message');
+    if (crawlerStatusMessage) {
+        crawlerStatusMessage.classList.add('hidden');
+        crawlerStatusMessage.innerHTML = ''; // 清空内容
+    }
+    
+    // 确保采集进度条初始隐藏
+    const crawlerProgress = document.getElementById('crawler-progress');
+    if (crawlerProgress) {
+        crawlerProgress.classList.add('hidden');
+    }
     
     // 定期刷新所有数据
     startRefreshInterval();
@@ -5124,8 +5223,8 @@ ${videoList}${moreVideos}`);
         // 隐藏设置面板
         document.getElementById('download-settings-panel').classList.add('hidden');
         
-        // 显示下载状态
-        showCrawlerStatus(`正在下载 ${videosCount} 个视频，请稍候...`);
+        // 隐藏原有的状态消息，下载进度将通过WebSocket事件显示
+        hideCrawlerStatus();
         
         const downloadData = {
             videos: window.selectedDownloadVideos,
@@ -5145,18 +5244,21 @@ ${videoList}${moreVideos}`);
             if (data.success) {
                 const { total, success_count, failed_count, failed_videos } = data.data;
                 
+                // 下载已完成，WebSocket会自动显示完成状态
+                // 这里只需要显示简短的状态即可
                 if (failed_count > 0) {
                     // 部分成功的情况
                     showCompletionStatus(
-                        `下载完成！成功: ${success_count}/${total} 个，失败: ${failed_count} 个`, 
-                        'warning',
-                        5000
+                        `下载任务完成！请查看详细结果`, 
+                        'info',
+                        2000
                     );
                 } else {
                     // 全部成功
                     showCompletionStatus(
-                        `✅ 全部下载完成！成功下载 ${success_count} 个视频`, 
-                        'success'
+                        `下载任务完成！`, 
+                        'success',
+                        2000
                     );
                 }
                 
