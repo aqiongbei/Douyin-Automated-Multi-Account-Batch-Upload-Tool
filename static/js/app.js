@@ -706,10 +706,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         // 保持任务表格可见，即使上传已完成
                         uploadTasks.classList.remove('hidden');
                         
-                        // 上传完成后清空选中的视频列表
-                        selectedVideos.length = 0; // 清空数组但保持引用
-                        updateSelectedVideosList();
-                        loadVideos(); // 刷新视频树显示
+                        // 检查是否所有任务都成功，只有全部成功才清空选择列表
+                        const allTasksSuccessful = data.tasks.every(task => 
+                            task.status.includes('完成') || task.status.includes('成功') || task.status === '上传成功'
+                        );
+                        
+                        if (allTasksSuccessful && data.tasks.length > 0) {
+                            // 只有在所有任务都成功时才清空选中的视频列表
+                            selectedVideos.length = 0; // 清空数组但保持引用
+                            updateSelectedVideosList();
+                            loadVideos(); // 刷新视频树显示
+                        } else {
+                            // 如果有失败的任务，保持选择状态，只刷新视频树以更新显示状态
+                            loadVideos(); // 刷新视频树显示但保持选择状态
+                        }
                         
                         // 更新任务列表，显示最终状态
                         const tbody = uploadTasks.querySelector('tbody');
