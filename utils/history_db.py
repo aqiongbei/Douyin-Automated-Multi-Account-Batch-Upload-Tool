@@ -1,8 +1,15 @@
 import sqlite3
+import os
 from datetime import datetime, timedelta
 
 def init_db():
-    conn = sqlite3.connect('database/upload_history.db')
+    # 确保数据库目录存在
+    db_path = 'database/upload_history.db'
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS upload_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,7 +24,13 @@ def init_db():
     conn.close()
 
 def log_upload_history(cookie_name, filename, status, reason=None, url=None):
-    conn = sqlite3.connect('database/upload_history.db')
+    # 确保数据库目录存在
+    db_path = 'database/upload_history.db'
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
     c.execute('''INSERT INTO upload_history (cookie_name, filename, upload_time, status, reason, url)
                  VALUES (?, ?, ?, ?, ?, ?)''',
@@ -26,7 +39,13 @@ def log_upload_history(cookie_name, filename, status, reason=None, url=None):
     conn.close()
 
 def get_history(cookie=None):
-    conn = sqlite3.connect('database/upload_history.db')
+    # 确保数据库目录存在
+    db_path = 'database/upload_history.db'
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
     if cookie:
         c.execute('SELECT filename, upload_time, status, reason, url FROM upload_history WHERE cookie_name=? ORDER BY upload_time DESC', (cookie,))
@@ -37,7 +56,13 @@ def get_history(cookie=None):
     return rows
 
 def get_upload_count_last_hour(cookie_name):
-    conn = sqlite3.connect('database/upload_history.db')
+    # 确保数据库目录存在
+    db_path = 'database/upload_history.db'
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
     now = datetime.now()
     one_hour_ago = (now - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')

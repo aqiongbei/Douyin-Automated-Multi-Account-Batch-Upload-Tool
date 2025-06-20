@@ -3,6 +3,7 @@ import json
 import random
 import asyncio
 import aiohttp
+import os
 from datetime import datetime, timedelta
 from utils.log import douyin_logger
 
@@ -13,6 +14,11 @@ class ProxyManager:
     
     def init_db(self):
         """初始化代理数据库"""
+        # 确保数据库目录存在
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+        
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
