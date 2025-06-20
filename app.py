@@ -4539,14 +4539,17 @@ def douyin_download_videos():
                     download_results = []
                     
                     # 发送下载开始状态
-                    socketio.emit('download_progress', {
-                        'current': 0,
-                        'total': total_videos,
-                        'status': 'started',
-                        'message': f'开始下载 {total_videos} 个视频...',
-                        'success_count': 0,
-                        'failed_count': 0
-                    })
+                    try:
+                        socketio.emit('download_progress', {
+                            'current': 0,
+                            'total': total_videos,
+                            'status': 'started',
+                            'message': f'开始下载 {total_videos} 个视频...',
+                            'success_count': 0,
+                            'failed_count': 0
+                        })
+                    except Exception as emit_error:
+                        douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                     
                     # 逐个下载视频
                     for i, video in enumerate(videos):
@@ -4554,27 +4557,33 @@ def douyin_download_videos():
                         global download_stop_flag
                         if download_stop_flag:
                             douyin_logger.info("⏹️ 检测到停止信号，中断下载...")
-                            socketio.emit('download_progress', {
-                                'current': i,
-                                'total': total_videos,
-                                'status': 'stopped',
-                                'message': f'下载已停止。已成功下载 {success_count} 个，失败 {len(failed_videos)} 个',
-                                'success_count': success_count,
-                                'failed_count': len(failed_videos)
-                            })
+                            try:
+                                socketio.emit('download_progress', {
+                                    'current': i,
+                                    'total': total_videos,
+                                    'status': 'stopped',
+                                    'message': f'下载已停止。已成功下载 {success_count} 个，失败 {len(failed_videos)} 个',
+                                    'success_count': success_count,
+                                    'failed_count': len(failed_videos)
+                                })
+                            except Exception as emit_error:
+                                douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                             break
                         
                         download_url = None  # 为每个视频初始化download_url
                         try:
                             # 发送下载进度更新
-                            socketio.emit('download_progress', {
-                                'current': i + 1,
-                                'total': total_videos,
-                                'status': 'downloading',
-                                'message': f'正在下载第 {i+1} 个视频，共 {total_videos} 个',
-                                'success_count': success_count,
-                                'failed_count': len(failed_videos)
-                            })
+                            try:
+                                socketio.emit('download_progress', {
+                                    'current': i + 1,
+                                    'total': total_videos,
+                                    'status': 'downloading',
+                                    'message': f'正在下载第 {i+1} 个视频，共 {total_videos} 个',
+                                    'success_count': success_count,
+                                    'failed_count': len(failed_videos)
+                                })
+                            except Exception as emit_error:
+                                douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                             
                             douyin_logger.info(f"处理第 {i+1} 个视频: {video}")
                             # 打印视频数据的键名，帮助调试
@@ -4719,45 +4728,54 @@ def douyin_download_videos():
                                         douyin_logger.info(f"视频下载成功: {title} -> {filename}")
                                         
                                         # 发送下载成功的进度更新
-                                        socketio.emit('download_progress', {
-                                            'current': i + 1,
-                                            'total': total_videos,
-                                            'status': 'success',
-                                            'message': f'第 {i+1} 个视频下载成功: {title}',
-                                            'success_count': success_count,
-                                            'failed_count': len(failed_videos),
-                                            'video_title': title
-                                        })
+                                        try:
+                                            socketio.emit('download_progress', {
+                                                'current': i + 1,
+                                                'total': total_videos,
+                                                'status': 'success',
+                                                'message': f'第 {i+1} 个视频下载成功: {title}',
+                                                'success_count': success_count,
+                                                'failed_count': len(failed_videos),
+                                                'video_title': title
+                                            })
+                                        except Exception as emit_error:
+                                            douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                                     else:
                                         failed_videos.append({'video': title, 'reason': f'下载失败，状态码: {response.status_code}'})
                                         douyin_logger.warning(f"下载失败，状态码: {response.status_code}, URL: {download_url if 'download_url' in locals() else 'unknown'}")
                                         
                                         # 发送下载失败的进度更新
-                                        socketio.emit('download_progress', {
-                                            'current': i + 1,
-                                            'total': total_videos,
-                                            'status': 'failed',
-                                            'message': f'第 {i+1} 个视频下载失败: {title}',
-                                            'success_count': success_count,
-                                            'failed_count': len(failed_videos),
-                                            'video_title': title,
-                                            'error': f'状态码: {response.status_code}'
-                                        })
+                                        try:
+                                            socketio.emit('download_progress', {
+                                                'current': i + 1,
+                                                'total': total_videos,
+                                                'status': 'failed',
+                                                'message': f'第 {i+1} 个视频下载失败: {title}',
+                                                'success_count': success_count,
+                                                'failed_count': len(failed_videos),
+                                                'video_title': title,
+                                                'error': f'状态码: {response.status_code}'
+                                            })
+                                        except Exception as emit_error:
+                                            douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                                 except Exception as download_error:
                                     failed_videos.append({'video': title, 'reason': f'下载异常: {str(download_error)}'})
                                     douyin_logger.error(f"下载异常: {str(download_error)}")
                                     
                                     # 发送下载异常的进度更新
-                                    socketio.emit('download_progress', {
-                                        'current': i + 1,
-                                        'total': total_videos,
-                                        'status': 'failed',
-                                        'message': f'第 {i+1} 个视频下载异常: {title}',
-                                        'success_count': success_count,
-                                        'failed_count': len(failed_videos),
-                                        'video_title': title,
-                                        'error': str(download_error)
-                                    })
+                                    try:
+                                        socketio.emit('download_progress', {
+                                            'current': i + 1,
+                                            'total': total_videos,
+                                            'status': 'failed',
+                                            'message': f'第 {i+1} 个视频下载异常: {title}',
+                                            'success_count': success_count,
+                                            'failed_count': len(failed_videos),
+                                            'video_title': title,
+                                            'error': str(download_error)
+                                        })
+                                    except Exception as emit_error:
+                                        douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                         
                         except Exception as e:
                             video_title = title if 'title' in locals() else f'视频_{i+1}'
@@ -4766,16 +4784,19 @@ def douyin_download_videos():
                             douyin_logger.error(f"错误详情 - 视频: {video}, 变量状态: download_url={'已定义' if 'download_url' in locals() else '未定义'}")
                             
                             # 发送处理失败的进度更新
-                            socketio.emit('download_progress', {
-                                'current': i + 1,
-                                'total': total_videos,
-                                'status': 'failed',
-                                'message': f'第 {i+1} 个视频处理失败: {video_title}',
-                                'success_count': success_count,
-                                'failed_count': len(failed_videos),
-                                'video_title': video_title,
-                                'error': str(e)
-                            })
+                            try:
+                                socketio.emit('download_progress', {
+                                    'current': i + 1,
+                                    'total': total_videos,
+                                    'status': 'failed',
+                                    'message': f'第 {i+1} 个视频处理失败: {video_title}',
+                                    'success_count': success_count,
+                                    'failed_count': len(failed_videos),
+                                    'video_title': video_title,
+                                    'error': str(e)
+                                })
+                            except Exception as emit_error:
+                                douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                     
                     # 返回下载结果
                     result_message = f"下载完成！成功: {success_count}/{total_videos}"
@@ -4786,15 +4807,18 @@ def douyin_download_videos():
                     douyin_logger.info(result_message)
                     
                     # 发送最终完成状态
-                    socketio.emit('download_progress', {
-                        'current': total_videos,
-                        'total': total_videos,
-                        'status': 'completed',
-                        'message': result_message,
-                        'success_count': success_count,
-                        'failed_count': len(failed_videos),
-                        'failed_videos': failed_videos
-                    })
+                    try:
+                        socketio.emit('download_progress', {
+                            'current': total_videos,
+                            'total': total_videos,
+                            'status': 'completed',
+                            'message': result_message,
+                            'success_count': success_count,
+                            'failed_count': len(failed_videos),
+                            'failed_videos': failed_videos
+                        })
+                    except Exception as emit_error:
+                        douyin_logger.warning(f"WebSocket推送失败: {emit_error}")
                     
                     return {
                         'success': True,
@@ -4816,22 +4840,18 @@ def douyin_download_videos():
                 # 清理全局线程引用
                 current_download_thread = None
         
-        # 在新线程中执行下载任务
+        # 立即返回响应，避免HTTP超时
+        # 在新线程中执行下载任务，不等待完成
         import threading
-        result_container = {}
-        
-        def run_download():
-            result_container['result'] = download_task()
-        
-        thread = threading.Thread(target=run_download)
+        thread = threading.Thread(target=download_task)
+        thread.daemon = True  # 设为守护线程
         thread.start()
-        thread.join(timeout=300)  # 5分钟超时
         
-        if 'result' in result_container:
-            result = result_container['result']
-            return jsonify(result)
-        else:
-            return jsonify({'success': False, 'message': '下载超时'}), 408
+        # 立即返回成功响应
+        return jsonify({
+            'success': True, 
+            'message': f'下载任务已启动，正在后台下载 {len(videos)} 个视频，请通过进度条查看实时进度'
+        })
             
     except Exception as e:
         douyin_logger.error(f"下载接口错误: {str(e)}")

@@ -4132,110 +4132,7 @@ ${videoList}${moreVideos}`);
         console.log('权限视频列表加载进度:', data.status);
     }
     
-    // 处理下载进度更新
-    function handleDownloadProgress(data) {
-        const progressMessage = document.getElementById('download-progress-message');
-        const progressText = document.getElementById('download-progress-text');
-        const progressBar = document.getElementById('download-progress-bar');
-        const progressPercent = document.getElementById('download-progress-percent');
-        const successCount = document.getElementById('download-success-count');
-        const failedCount = document.getElementById('download-failed-count');
-        const currentTotal = document.getElementById('download-current-total');
-        
-        if (!progressMessage) return;
-        
-        // 获取按钮元素
-        const stopBtn = document.getElementById('stop-download');
-        const confirmBtn = document.getElementById('confirm-download');
-        const stopProgressBtn = document.getElementById('stop-download-progress');
-        
-        // 根据状态更新样式和按钮显示
-        progressMessage.className = 'status-message';
-        switch (data.status) {
-            case 'started':
-                progressMessage.classList.add('info');
-                progressMessage.classList.remove('hidden');
-                // 显示停止按钮，隐藏确认按钮
-                if (stopBtn) stopBtn.classList.remove('hidden');
-                if (confirmBtn) confirmBtn.classList.add('hidden');
-                if (stopProgressBtn) stopProgressBtn.classList.remove('hidden');
-                break;
-            case 'downloading':
-                progressMessage.classList.add('info');
-                // 保持停止按钮显示
-                if (stopBtn) stopBtn.classList.remove('hidden');
-                if (confirmBtn) confirmBtn.classList.add('hidden');
-                if (stopProgressBtn) stopProgressBtn.classList.remove('hidden');
-                break;
-            case 'success':
-                // 单个视频成功时保持info样式，完成时改为success
-                break;
-            case 'failed':
-                // 单个视频失败时显示警告色，但不改变整体状态
-                break;
-            case 'stopped':
-                progressMessage.classList.add('warning');
-                progressMessage.classList.remove('info');
-                // 隐藏停止按钮，显示确认按钮
-                if (stopBtn) stopBtn.classList.add('hidden');
-                if (confirmBtn) confirmBtn.classList.remove('hidden');
-                if (stopProgressBtn) stopProgressBtn.classList.add('hidden');
-                
-                // 3秒后自动隐藏
-                setTimeout(() => {
-                    progressMessage.classList.add('hidden');
-                }, 3000);
-                break;
-            case 'completed':
-                progressMessage.classList.add('success');
-                progressMessage.classList.remove('info');
-                // 隐藏停止按钮，显示确认按钮
-                if (stopBtn) stopBtn.classList.add('hidden');
-                if (confirmBtn) confirmBtn.classList.remove('hidden');
-                if (stopProgressBtn) stopProgressBtn.classList.add('hidden');
-                
-                // 3秒后自动隐藏
-                setTimeout(() => {
-                    progressMessage.classList.add('hidden');
-                }, 3000);
-                break;
-        }
-        
-        // 更新文本内容
-        if (progressText) {
-            progressText.textContent = data.message || '下载中...';
-        }
-        
-        // 更新进度条
-        if (data.total > 0) {
-            const percentage = Math.round((data.current / data.total) * 100);
-            if (progressBar) {
-                progressBar.style.width = percentage + '%';
-            }
-            if (progressPercent) {
-                progressPercent.textContent = percentage + '%';
-            }
-        }
-        
-        // 更新统计信息
-        if (successCount) {
-            successCount.textContent = `成功: ${data.success_count || 0}`;
-        }
-        if (failedCount) {
-            failedCount.textContent = `失败: ${data.failed_count || 0}`;
-        }
-        if (currentTotal) {
-            currentTotal.textContent = `${data.current || 0} / ${data.total || 0}`;
-        }
-        
-        // 如果有视频标题，在控制台输出详细信息
-        if (data.video_title) {
-            console.log(`下载进度: ${data.video_title} - ${data.status}`);
-            if (data.error) {
-                console.warn(`下载错误: ${data.error}`);
-            }
-        }
-    }
+
 
 
     
@@ -5281,51 +5178,22 @@ ${videoList}${moreVideos}`);
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const { total, success_count, failed_count, failed_videos } = data.data;
+                // 现在API是异步的，只返回任务启动消息
+                // 真正的下载结果通过WebSocket推送，由handleDownloadProgress处理
+                showCompletionStatus(`✅ ${data.message}`, 'success', 3000);
+                console.log('下载任务已启动:', data.message);
                 
-                // 下载已完成，WebSocket会自动显示完成状态
-                // 这里只需要显示简短的状态即可
-                if (failed_count > 0) {
-                    // 部分成功的情况
-                    showCompletionStatus(
-                        `下载任务完成！请查看详细结果`, 
-                        'info',
-                        2000
-                    );
-                } else {
-                    // 全部成功
-                    showCompletionStatus(
-                        `下载任务完成！`, 
-                        'success',
-                        2000
-                    );
-                }
-                
-                // 详细的弹窗信息
-                let message = `✅ 下载完成！\n成功: ${success_count}/${total} 个视频`;
-                if (failed_count > 0) {
-                    message += `\n失败: ${failed_count} 个视频`;
-                    if (failed_videos && failed_videos.length > 0) {
-                        const failureReasons = failed_videos.slice(0, 5).map(f => `• ${f.video}: ${f.reason}`).join('\n');
-                        message += `\n\n失败原因(显示前5个):\n${failureReasons}`;
-                        if (failed_videos.length > 5) {
-                            message += `\n... 还有 ${failed_videos.length - 5} 个失败项目`;
-                        }
-                    }
-                }
-                message += `\n\n视频已保存到 downloads 文件夹`;
-                
-                alert(message);
-                showSuccessMessage(`视频下载完成！成功: ${success_count}/${total}`);
+                // 不再显示alert，改为提示信息
+                showSuccessMessage('下载任务已启动，请查看进度面板了解实时状态');
             } else {
-                showCompletionStatus(`❌ 下载失败：${data.message}`, 'error', 5000);
-                alert(`❌ 下载失败：${data.message}`);
+                showCompletionStatus(`❌ 下载启动失败：${data.message}`, 'error', 5000);
+                alert(`❌ 下载启动失败：${data.message}`);
             }
         })
         .catch(error => {
-            showCompletionStatus('❌ 下载失败，请检查网络连接', 'error', 5000);
-            console.error('下载失败:', error);
-            alert('下载失败，请检查网络连接和Downloader服务状态');
+            showCompletionStatus('❌ 下载请求失败，请检查网络连接', 'error', 5000);
+            console.error('下载请求失败:', error);
+            alert('下载请求失败，请检查网络连接状态。\n注意：如果后端正在下载，请通过进度面板查看下载状态。');
         })
         .finally(() => {
             // 清理选中的视频数据
@@ -5457,26 +5325,21 @@ ${videoList}${moreVideos}`);
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const { success_count, failed_count, failed_videos } = data.data;
+                // 现在API是异步的，只返回任务启动消息
+                showCompletionStatus(`✅ ${data.message}`, 'success', 3000);
+                console.log('单个视频下载任务已启动:', data.message);
                 
-                if (success_count > 0) {
-                    showCompletionStatus('✅ 视频下载成功！', 'success');
-                    alert(`✅ 视频下载成功！\n视频已保存到 downloads 文件夹`);
-                    showSuccessMessage('视频下载成功！');
-                } else {
-                    const reason = failed_videos && failed_videos.length > 0 ? failed_videos[0].reason : '未知错误';
-                    showCompletionStatus(`❌ 下载失败：${reason}`, 'error', 5000);
-                    alert(`❌ 视频下载失败\n原因: ${reason}`);
-                }
+                // 提示用户查看进度
+                showSuccessMessage('视频下载任务已启动，请查看进度面板了解下载状态');
             } else {
-                showCompletionStatus(`❌ 下载失败：${data.message}`, 'error', 5000);
-                alert(`❌ 下载失败：${data.message}`);
+                showCompletionStatus(`❌ 下载启动失败：${data.message}`, 'error', 5000);
+                alert(`❌ 下载启动失败：${data.message}`);
             }
         })
         .catch(error => {
-            showCompletionStatus('❌ 下载失败，请检查网络连接', 'error', 5000);
-            console.error('下载失败:', error);
-            alert('下载失败，请检查网络连接和Downloader服务状态');
+            showCompletionStatus('❌ 下载请求失败，请检查网络连接', 'error', 5000);
+            console.error('下载请求失败:', error);
+            alert('下载请求失败，请检查网络连接状态。\n注意：如果后端正在下载，请通过进度面板查看下载状态。');
         });
     }
     
@@ -5834,5 +5697,183 @@ ${videoList}${moreVideos}`);
                 console.log('检查下载状态失败:', error);
                 // 静默失败，不显示错误消息，避免干扰用户体验
             });
+    }
+
+    // 抖音视频下载（修复为使用正确的HTML元素）
+    async function douyinDownload() {
+        const checkedBoxes = document.querySelectorAll('#search-results-container input[type="checkbox"]:checked');
+        const selectedVideos = Array.from(checkedBoxes).map(checkbox => {
+            const videoId = checkbox.dataset.videoId;
+            return searchResultsGlobal.find(video => 
+                (video.aweme_id || video.id) === videoId
+            );
+        }).filter(video => video); // 过滤掉undefined的项
+
+        if (selectedVideos.length === 0) {
+            showMessage('请先选择要下载的视频', 'error');
+            return;
+        }
+
+        const cookie = document.getElementById('download-cookie').value;
+        const proxy = document.getElementById('download-proxy').value;
+
+        if (!cookie) {
+            showMessage('请选择Cookie文件', 'error');
+            return;
+        }
+
+        // 显示下载进度面板（使用实际存在的元素）
+        const progressMessage = document.getElementById('download-progress-message');
+        const stopProgressBtn = document.getElementById('stop-download-progress');
+        
+        if (progressMessage) {
+            progressMessage.classList.remove('hidden');
+            progressMessage.className = 'status-message info';
+            const progressText = document.getElementById('download-progress-text');
+            if (progressText) {
+                progressText.textContent = '正在准备下载...';
+            }
+        }
+        
+        if (stopProgressBtn) {
+            stopProgressBtn.classList.remove('hidden');
+        }
+
+        try {
+            const response = await fetch('/api/douyin/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    videos: selectedVideos,
+                    cookie: cookie,
+                    proxy: proxy
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                showCompletionStatus(result.message, 'success');
+                // 注意：现在下载任务在后台异步执行，结果通过WebSocket推送
+            } else {
+                showCompletionStatus(result.message || '下载启动失败', 'error');
+                // 隐藏进度面板
+                if (progressMessage) {
+                    progressMessage.classList.add('hidden');
+                }
+                if (stopProgressBtn) {
+                    stopProgressBtn.classList.add('hidden');
+                }
+            }
+        } catch (error) {
+            console.error('下载请求失败:', error);
+            showCompletionStatus('网络请求失败，请检查连接', 'error');
+            // 隐藏进度面板
+            if (progressMessage) {
+                progressMessage.classList.add('hidden');
+            }
+            if (stopProgressBtn) {
+                stopProgressBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    // 处理下载进度更新（使用实际的HTML元素）
+    function handleDownloadProgress(data) {
+        console.log('收到下载进度更新:', data);
+        
+        // 使用实际存在的HTML元素
+        const progressMessage = document.getElementById('download-progress-message');
+        const progressText = document.getElementById('download-progress-text');
+        const progressBar = document.getElementById('download-progress-bar');
+        const progressPercent = document.getElementById('download-progress-percent');
+        const successCount = document.getElementById('download-success-count');
+        const failedCount = document.getElementById('download-failed-count');
+        const currentTotal = document.getElementById('download-current-total');
+        const stopProgressBtn = document.getElementById('stop-download-progress');
+        
+        if (!progressMessage) {
+            console.error('找不到下载进度面板元素');
+            return;
+        }
+        
+        // 显示进度面板
+        progressMessage.classList.remove('hidden');
+        
+        // 更新进度信息文本
+        if (progressText) {
+            progressText.textContent = data.message || '正在处理...';
+        }
+        
+        // 更新进度条
+        const percent = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+        }
+        if (progressPercent) {
+            progressPercent.textContent = `${percent}%`;
+        }
+        
+        // 更新统计信息
+        if (successCount) {
+            successCount.textContent = `成功: ${data.success_count || 0}`;
+        }
+        if (failedCount) {
+            failedCount.textContent = `失败: ${data.failed_count || 0}`;
+        }
+        if (currentTotal) {
+            currentTotal.textContent = `${data.current || 0} / ${data.total || 0}`;
+        }
+        
+        // 根据状态更新样式和按钮
+        progressMessage.className = 'status-message'; // 重置class
+        
+        if (data.status === 'started') {
+            progressMessage.classList.add('info');
+            if (stopProgressBtn) {
+                stopProgressBtn.classList.remove('hidden');
+            }
+        } else if (data.status === 'downloading') {
+            progressMessage.classList.add('info');
+        } else if (data.status === 'success') {
+            // 单个视频成功时保持info样式
+            progressMessage.classList.add('info');
+        } else if (data.status === 'failed') {
+            // 单个视频失败时显示警告色
+            progressMessage.classList.add('warning');
+        } else if (data.status === 'completed') {
+            if (data.failed_count > 0) {
+                progressMessage.classList.add('warning');
+            } else {
+                progressMessage.classList.add('success');
+            }
+            if (stopProgressBtn) {
+                stopProgressBtn.classList.add('hidden');
+            }
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                progressMessage.classList.add('hidden');
+                refreshStats();
+            }, 3000);
+        } else if (data.status === 'stopped') {
+            progressMessage.classList.add('warning');
+            if (stopProgressBtn) {
+                stopProgressBtn.classList.add('hidden');
+            }
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                progressMessage.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // 输出详细信息到控制台
+        if (data.video_title) {
+            console.log(`下载进度: ${data.video_title} - ${data.status}`);
+            if (data.error) {
+                console.warn(`下载错误: ${data.error}`);
+            }
+        }
     }
 }); 
