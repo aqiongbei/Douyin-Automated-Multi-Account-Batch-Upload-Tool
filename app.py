@@ -452,11 +452,26 @@ def handle_request_browser_view(data):
     with browser_data_lock:
         if session_id in browser_screenshot_data:
             screenshot_data = browser_screenshot_data[session_id]
-            emit('browser_screenshot', {
-                'session_id': session_id,
-                'screenshot': screenshot_data,
-                'timestamp': time.time()
-            })
+            
+            # 确保screenshot_data是正确的格式
+            if isinstance(screenshot_data, dict) and 'data' in screenshot_data:
+                emit('browser_screenshot', {
+                    'session_id': session_id,
+                    'screenshot': screenshot_data['data'],
+                    'timestamp': screenshot_data.get('timestamp', time.time())
+                })
+                print(f"📤 刷新请求: 发送截图数据到客户端, session_id={session_id}")
+            else:
+                # 如果数据格式不正确，直接发送原始数据
+                emit('browser_screenshot', {
+                    'session_id': session_id,
+                    'screenshot': screenshot_data,
+                    'timestamp': time.time()
+                })
+                print(f"📤 刷新请求: 发送原始截图数据到客户端, session_id={session_id}")
+        else:
+            print(f"⚠️ 刷新请求失败: 没有找到session {session_id} 的截图数据")
+            emit('error', {'message': f'没有找到会话 {session_id} 的截图数据'})
 
 @socketio.on('browser_click')
 def handle_browser_click(data):
@@ -2457,7 +2472,7 @@ async def douyin_cookie_gen_with_screenshots(account_file, session_id, proxy_id=
             browser_click_queue[session_id] = []  # 初始化点击队列
         
         # 启动截图和点击处理任务（降低截图频率提升性能）
-        screenshot_task = asyncio.create_task(capture_screenshots(page, session_id, interval=5))
+        screenshot_task = asyncio.create_task(capture_screenshots(page, session_id, interval=0.5))
         click_task = asyncio.create_task(handle_click_events(page, session_id))
         
         try:
@@ -2527,7 +2542,7 @@ async def douyin_cookie_gen_with_screenshots(account_file, session_id, proxy_id=
             except Exception as e:
                 douyin_logger.error(f"关闭浏览器时出错: {str(e)}")
 
-async def capture_screenshots(page, session_id, interval=5):
+async def capture_screenshots(page, session_id, interval=0.5):
     """捕获页面截图并通过WebSocket发送"""
     last_screenshot_hash = None
     try:
@@ -2538,12 +2553,12 @@ async def capture_screenshots(page, session_id, interval=5):
                     break
                     
             try:
-                # 截图（减小尺寸提升性能）
+                # 截图（完整页面显示）
                 screenshot = await safe_screenshot(
                     page,
-                    full_page=False, 
-                    type='png',
-                    clip={'x': 0, 'y': 0, 'width': 1280, 'height': 720}  # 限制截图尺寸
+                    full_page=True,  # 获取完整页面截图
+                    type='png'
+                    # 移除clip限制，让用户在前端通过缩放查看需要的区域
                 )
                 
                 # 计算截图hash，避免重复发送相同截图

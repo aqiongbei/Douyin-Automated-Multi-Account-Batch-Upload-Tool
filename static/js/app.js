@@ -1082,6 +1082,22 @@ document.addEventListener('DOMContentLoaded', function() {
         socket.on('permission_video_list_progress', function(data) {
             handlePermissionVideoListProgress(data);
         });
+        
+        // 通用错误事件处理
+        socket.on('error', function(data) {
+            console.error('WebSocket错误:', data);
+            if (data.message) {
+                // 如果是浏览器视图相关的错误，更新状态
+                if (currentBrowserSession && browserViewModal && !browserViewModal.classList.contains('hidden')) {
+                    updateBrowserStatus(data.message, 'error', 'ri-error-warning-line');
+                    // 显示覆盖层，提示用户重新开始
+                    screenshotOverlay.classList.remove('hidden');
+                } else {
+                    // 其他错误显示alert
+                    alert('错误: ' + data.message);
+                }
+            }
+        });
     }
     
     // 显示浏览器视图模态框
@@ -1132,9 +1148,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // 请求浏览器视图
     function requestBrowserView() {
         if (socket && currentBrowserSession) {
+            console.log('请求刷新截图:', currentBrowserSession);
+            updateBrowserStatus('正在刷新画面...', 'info', 'ri-refresh-line spinning');
+            
             socket.emit('request_browser_view', {
                 session_id: currentBrowserSession
             });
+        } else {
+            console.warn('无法刷新截图: 没有活跃的浏览器会话');
+            updateBrowserStatus('没有活跃的浏览器会话，请重新生成Cookie', 'error', 'ri-error-warning-line');
+            screenshotOverlay.classList.remove('hidden');
         }
     }
     
@@ -1186,6 +1209,33 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 更新截图
         browserScreenshot.src = data.screenshot;
+        
+        // 确保图片完整显示，不被裁切
+        browserScreenshot.onload = function() {
+            // 强制移除所有尺寸限制，确保完整显示
+            browserScreenshot.style.width = 'auto';
+            browserScreenshot.style.height = 'auto';
+            browserScreenshot.style.maxWidth = 'none';
+            browserScreenshot.style.maxHeight = 'none';
+            browserScreenshot.style.minWidth = 'none';
+            browserScreenshot.style.minHeight = 'none';
+            browserScreenshot.style.objectFit = 'none';
+            
+            // 重新应用当前缩放设置
+            applyZoom();
+            // 设置点击功能
+            setupBrowserScreenshotClick();
+            
+            console.log('截图已成功加载和显示');
+        };
+        
+        // 图片加载失败处理
+        browserScreenshot.onerror = function() {
+            console.error('截图加载失败');
+            updateBrowserStatus('截图加载失败，请重新刷新', 'error', 'ri-error-warning-line');
+            screenshotOverlay.classList.remove('hidden');
+        };
+        
         screenshotOverlay.classList.add('hidden');
         
         // 更新时间戳
@@ -1358,7 +1408,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 应用缩放
     function applyZoom() {
         if (browserScreenshot && zoomLevelSpan) {
+            // 使用transform scale来缩放，保持图片原始尺寸显示
             browserScreenshot.style.transform = `scale(${currentZoom})`;
+            browserScreenshot.style.transformOrigin = '0 0'; // 从左上角开始缩放
             zoomLevelSpan.textContent = Math.round(currentZoom * 100) + '%';
             
             // 更新按钮状态

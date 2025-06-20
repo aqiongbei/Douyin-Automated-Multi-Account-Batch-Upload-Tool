@@ -1076,7 +1076,8 @@ input[type="password"]:focus {
     background-color: var(--secondary-color);
     border-radius: 12px;
     border: 2px solid var(--border-color);
-    min-height: 500px;
+    min-height: 600px; /* 增加最小高度 */
+    max-height: 80vh; /* 限制最大高度为视口的80% */
     display: flex;
     flex-direction: column;
 }
@@ -1153,6 +1154,9 @@ input[type="password"]:focus {
     background: #000;
     cursor: grab;
     border-radius: 0 0 12px 12px;
+    /* 确保能完整显示图片，不进行裁切 */
+    width: 100%;
+    height: 100%;
 }
 
 .screenshot-viewport:active {
@@ -1185,14 +1189,21 @@ input[type="password"]:focus {
     z-index: 1;
     cursor: pointer;
     transform-origin: 0 0;
-    /* 允许图片超出容器大小 */
-    min-width: 100%;
-    min-height: 100%;
+    /* 强制显示图片的原始完整尺寸，移除所有尺寸限制 */
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: none !important;
+    min-height: none !important;
+    display: block;
+    /* 确保图片不被任何容器裁切 */
+    overflow: visible;
 }
 
 #browser-screenshot:hover {
     box-shadow: 0 6px 24px rgba(0, 122, 204, 0.3);
-    transform: scale(1.01);
+    /* 移除hover时的缩放，避免干扰用户的缩放操作 */
 }
 
 .screenshot-overlay {
