@@ -765,6 +765,11 @@
                                     <span id="download-failed-count">失败: 0</span>
                                     <span id="download-current-total">0 / 0</span>
                                 </div>
+                                <div class="progress-actions">
+                                    <button id="stop-download-progress" class="danger-button hidden">
+                                        <i class="ri-stop-line"></i> 停止下载
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -811,6 +816,9 @@
                                 <div class="download-actions">
                                     <button id="confirm-download" class="primary-button" disabled>
                                         <i class="ri-download-cloud-line"></i> 确认下载选中项
+                                    </button>
+                                    <button id="stop-download" class="danger-button hidden">
+                                        <i class="ri-stop-line"></i> 停止下载
                                     </button>
                                     <button id="cancel-download" class="secondary-button">
                                         <i class="ri-close-line"></i> 取消

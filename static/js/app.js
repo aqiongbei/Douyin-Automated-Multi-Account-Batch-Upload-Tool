@@ -112,6 +112,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 加载浏览器指纹数据
     loadFingerprints();
     
+    // 检查是否有下载任务在进行中(刷新页面后恢复状态)
+    checkDownloadStatus();
+    
     // 设置事件监听器
     generateCookieBtn.addEventListener('click', generateCookie);
     deleteCookieBtn.addEventListener('click', deleteCookie);
@@ -4141,15 +4144,28 @@ ${videoList}${moreVideos}`);
         
         if (!progressMessage) return;
         
-        // 根据状态更新样式
+        // 获取按钮元素
+        const stopBtn = document.getElementById('stop-download');
+        const confirmBtn = document.getElementById('confirm-download');
+        const stopProgressBtn = document.getElementById('stop-download-progress');
+        
+        // 根据状态更新样式和按钮显示
         progressMessage.className = 'status-message';
         switch (data.status) {
             case 'started':
                 progressMessage.classList.add('info');
                 progressMessage.classList.remove('hidden');
+                // 显示停止按钮，隐藏确认按钮
+                if (stopBtn) stopBtn.classList.remove('hidden');
+                if (confirmBtn) confirmBtn.classList.add('hidden');
+                if (stopProgressBtn) stopProgressBtn.classList.remove('hidden');
                 break;
             case 'downloading':
                 progressMessage.classList.add('info');
+                // 保持停止按钮显示
+                if (stopBtn) stopBtn.classList.remove('hidden');
+                if (confirmBtn) confirmBtn.classList.add('hidden');
+                if (stopProgressBtn) stopProgressBtn.classList.remove('hidden');
                 break;
             case 'success':
                 // 单个视频成功时保持info样式，完成时改为success
@@ -4157,9 +4173,26 @@ ${videoList}${moreVideos}`);
             case 'failed':
                 // 单个视频失败时显示警告色，但不改变整体状态
                 break;
+            case 'stopped':
+                progressMessage.classList.add('warning');
+                progressMessage.classList.remove('info');
+                // 隐藏停止按钮，显示确认按钮
+                if (stopBtn) stopBtn.classList.add('hidden');
+                if (confirmBtn) confirmBtn.classList.remove('hidden');
+                if (stopProgressBtn) stopProgressBtn.classList.add('hidden');
+                
+                // 3秒后自动隐藏
+                setTimeout(() => {
+                    progressMessage.classList.add('hidden');
+                }, 3000);
+                break;
             case 'completed':
                 progressMessage.classList.add('success');
                 progressMessage.classList.remove('info');
+                // 隐藏停止按钮，显示确认按钮
+                if (stopBtn) stopBtn.classList.add('hidden');
+                if (confirmBtn) confirmBtn.classList.remove('hidden');
+                if (stopProgressBtn) stopProgressBtn.classList.add('hidden');
                 
                 // 3秒后自动隐藏
                 setTimeout(() => {
@@ -4549,6 +4582,12 @@ ${videoList}${moreVideos}`);
         
         const cancelDownloadBtn = document.getElementById('cancel-download');
         if (cancelDownloadBtn) cancelDownloadBtn.addEventListener('click', cancelDownload);
+        
+        const stopDownloadBtn = document.getElementById('stop-download');
+        if (stopDownloadBtn) stopDownloadBtn.addEventListener('click', stopDownload);
+        
+        const stopDownloadProgressBtn = document.getElementById('stop-download-progress');
+        if (stopDownloadProgressBtn) stopDownloadProgressBtn.addEventListener('click', stopDownload);
         
         // 监听下载Cookie选择变化，启用/禁用确认按钮
         const downloadCookieSelect = document.getElementById('download-cookie');
@@ -5302,6 +5341,32 @@ ${videoList}${moreVideos}`);
         window.selectedDownloadVideos = null;
     }
     
+    // 停止下载函数
+    function stopDownload() {
+        if (confirm('确定要停止当前下载任务吗？已下载的视频将保留。')) {
+            fetch('/api/douyin/download/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('停止下载请求已发送:', data.message);
+                    showCompletionStatus('停止信号已发送，正在停止下载...', 'info', 2000);
+                } else {
+                    console.error('停止下载失败:', data.message);
+                    alert('停止下载失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('停止下载请求失败:', error);
+                alert('停止下载请求失败: ' + error.message);
+            });
+        }
+    }
+    
     // 清空结果
     function clearResults() {
         window.crawlerResults = [];
@@ -5730,5 +5795,44 @@ ${videoList}${moreVideos}`);
                 autoScrollBtn.title = '自动滚动: 关闭';
             }
         }
+    }
+    
+    // 检查下载状态函数
+    function checkDownloadStatus() {
+        fetch('/api/douyin/download/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data.is_downloading) {
+                    console.log('🔄 检测到正在进行的下载任务，恢复进度显示');
+                    
+                    // 显示下载进度面板
+                    const progressMessage = document.getElementById('download-progress-message');
+                    if (progressMessage) {
+                        progressMessage.classList.remove('hidden');
+                        progressMessage.classList.add('info');
+                        
+                        // 更新显示内容
+                        const progressText = document.getElementById('download-progress-text');
+                        if (progressText) {
+                            progressText.textContent = '下载进行中... (页面刷新后恢复显示)';
+                        }
+                        
+                        // 显示停止按钮，隐藏确认按钮  
+                        const confirmBtn = document.getElementById('confirm-download');
+                        const stopBtn = document.getElementById('stop-download');
+                        const stopProgressBtn = document.getElementById('stop-download-progress');
+                        if (confirmBtn) confirmBtn.classList.add('hidden');
+                        if (stopBtn) stopBtn.classList.remove('hidden');
+                        if (stopProgressBtn) stopProgressBtn.classList.remove('hidden');
+                    }
+                    
+                    // 显示提示消息
+                    showSuccessMessage('⚠️ 检测到正在进行的下载任务。注意：刷新页面会断开实时进度显示！');
+                }
+            })
+            .catch(error => {
+                console.log('检查下载状态失败:', error);
+                // 静默失败，不显示错误消息，避免干扰用户体验
+            });
     }
 }); 

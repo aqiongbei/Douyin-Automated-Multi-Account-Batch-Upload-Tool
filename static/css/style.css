@@ -4139,6 +4139,45 @@ input[type="password"]:focus {
     background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
 }
 
+#download-progress-message.status-message.warning:not(.hidden) {
+    background: linear-gradient(135deg, #ffa726 0%, #ffcc02 100%);
+    color: white;
+}
+
+/* 下载进度中的操作按钮 */
+.progress-actions {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.progress-actions .danger-button {
+    background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.progress-actions .danger-button:hover {
+    background: linear-gradient(135deg, #ff3838 0%, #ff2d2d 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255, 71, 87, 0.3);
+}
+
+.progress-actions .danger-button:active {
+    transform: translateY(0);
+}
+
+.progress-actions .danger-button.hidden {
+    display: none !important;
+}
+
 .progress-content {
     display: flex;
     flex-direction: column;

@@ -56,6 +56,10 @@ downloader_logs = []  # 存储日志
 log_queue = queue.Queue()  # 日志队列
 max_log_lines = 1000  # 最大日志行数
 
+# 下载控制变量
+download_stop_flag = False  # 下载停止标志
+current_download_thread = None  # 当前下载线程
+
 def start_downloader_service():
     """启动Downloader服务"""
     global downloader_process
@@ -208,11 +212,21 @@ def start_log_reader():
 
 def check_downloader_status():
     """检查Downloader服务是否运行"""
+    global current_download_thread
+    
+    # 如果正在下载，且下载线程活跃，假设服务正常
+    if current_download_thread and current_download_thread.is_alive():
+        return True
+    
     try:
         # 使用docs端点检查，因为根路径会重定向
         response = requests.get(f"{DOWNLOADER_API_BASE}/docs", timeout=3)
         return response.status_code == 200
-    except:
+    except requests.exceptions.RequestException as e:
+        douyin_logger.debug(f"Downloader状态检查失败: {str(e)}")
+        return False
+    except Exception as e:
+        douyin_logger.debug(f"Downloader状态检查异常: {str(e)}")
         return False
 
 async def call_downloader_api(endpoint, data=None, method="POST"):
@@ -3978,6 +3992,13 @@ def move_video_files(extract_dir, task_id):
 # 抖音采集相关的全局变量
 def init_app_services():
     """初始化应用服务"""
+    global current_download_thread
+    
+    # 如果正在下载，跳过服务检查，避免干扰下载进程
+    if current_download_thread and current_download_thread.is_alive():
+        douyin_logger.info("🔄 正在下载中，跳过Downloader服务状态检查")
+        return True
+    
     # 首先检查服务是否已在运行
     if check_downloader_status():
         douyin_logger.info("✅ Downloader服务已连接")
@@ -4490,6 +4511,11 @@ def douyin_download_videos():
         
         def download_task():
             try:
+                # 设置全局下载控制变量
+                global download_stop_flag, current_download_thread
+                download_stop_flag = False
+                current_download_thread = threading.current_thread()
+                
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 
@@ -4524,6 +4550,20 @@ def douyin_download_videos():
                     
                     # 逐个下载视频
                     for i, video in enumerate(videos):
+                        # 检查是否需要停止下载
+                        global download_stop_flag
+                        if download_stop_flag:
+                            douyin_logger.info("⏹️ 检测到停止信号，中断下载...")
+                            socketio.emit('download_progress', {
+                                'current': i,
+                                'total': total_videos,
+                                'status': 'stopped',
+                                'message': f'下载已停止。已成功下载 {success_count} 个，失败 {len(failed_videos)} 个',
+                                'success_count': success_count,
+                                'failed_count': len(failed_videos)
+                            })
+                            break
+                        
                         download_url = None  # 为每个视频初始化download_url
                         try:
                             # 发送下载进度更新
@@ -4772,6 +4812,9 @@ def douyin_download_videos():
             except Exception as e:
                 douyin_logger.error(f"批量下载视频失败: {str(e)}")
                 return {'success': False, 'message': f'下载失败: {str(e)}'}
+            finally:
+                # 清理全局线程引用
+                current_download_thread = None
         
         # 在新线程中执行下载任务
         import threading
@@ -4793,6 +4836,55 @@ def douyin_download_videos():
     except Exception as e:
         douyin_logger.error(f"下载接口错误: {str(e)}")
         return jsonify({'success': False, 'message': f'接口错误: {str(e)}'}), 500
+
+@app.route('/api/douyin/download/stop', methods=['POST'])
+def stop_download():
+    """停止当前下载任务"""
+    try:
+        global download_stop_flag, current_download_thread
+        
+        if current_download_thread is None:
+            return jsonify({'success': False, 'message': '当前没有进行中的下载任务'})
+        
+        # 设置停止标志
+        download_stop_flag = True
+        douyin_logger.info("⏹️ 收到停止下载请求")
+        
+        # 发送停止状态到前端
+        socketio.emit('download_progress', {
+            'current': 0,
+            'total': 0,
+            'status': 'stopping',
+            'message': '正在停止下载...',
+            'success_count': 0,
+            'failed_count': 0
+        })
+        
+        return jsonify({'success': True, 'message': '停止信号已发送，下载将在当前视频完成后停止'})
+        
+    except Exception as e:
+        douyin_logger.error(f"停止下载失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'停止下载失败: {str(e)}'}), 500
+
+@app.route('/api/douyin/download/status', methods=['GET'])
+def get_download_status():
+    """获取下载状态"""
+    try:
+        global current_download_thread, download_stop_flag
+        
+        is_downloading = current_download_thread is not None and current_download_thread.is_alive()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'is_downloading': is_downloading,
+                'stop_requested': download_stop_flag
+            }
+        })
+        
+    except Exception as e:
+        douyin_logger.error(f"获取下载状态失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取状态失败: {str(e)}'}), 500
 
 def create_video_txt_file(video_filepath, title, desc=""):
     """为视频创建对应的.txt标签文件"""
