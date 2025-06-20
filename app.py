@@ -1430,6 +1430,8 @@ def build_ffmpeg_command(input_path, output_path, settings):
             else:
                 # AB帧融合等其他复杂滤镜
                 cmd.extend(['-filter_complex', filter_string])
+            # 关键修复：当使用filter_complex时，必须手动映射音频流
+            cmd.extend(['-map', '0:a?'])
         else:
             # 普通滤镜，使用-vf
             douyin_logger.info("使用 -vf 参数")
@@ -1456,6 +1458,9 @@ def build_ffmpeg_command(input_path, output_path, settings):
             # 倍率模式，使用默认码率的倍数
             multiplier = (bitrate.get('min', 1.05) + bitrate.get('max', 1.95)) / 2
             cmd.extend(['-q:v', str(int(28 / multiplier))])  # 反向计算质量参数
+    
+    # 关键修复：添加音频流复制参数，确保声音不丢失
+    cmd.extend(['-c:a', 'copy'])
     
     # 输出设置
     cmd.extend(['-y', output_path])
