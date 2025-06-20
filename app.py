@@ -608,6 +608,11 @@ def handle_close_browser(data):
 def index():
     return render_template('index.html')
 
+@app.route('/usage-guide')
+def usage_guide():
+    """使用说明页面"""
+    return render_template('usage_guide.html')
+
 @app.route('/video-editor')
 def video_editor():
     return render_template('video_editor.html')

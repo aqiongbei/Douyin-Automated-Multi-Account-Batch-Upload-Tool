@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抖音自动化工具 - 使用说明</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .guide-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1f25;
+            color: #e2e8f0;
+        }
+        .guide-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+        }
+        .guide-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #23272f;
+            border-radius: 10px;
+        }
+        .nav-item {
+            padding: 8px 16px;
+            background: #4a5568;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: #e2e8f0;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: #667eea;
+            color: white;
+        }
+        .guide-section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #23272f;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .section-title {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .subsection {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2d3748;
+            border-radius: 8px;
+        }
+        .subsection-title {
+            font-size: 18px;
+            color: #4fd1c7;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .step-list {
+            list-style: none;
+            padding: 0;
+        }
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #1a1f25;
+            border-radius: 8px;
+            border-left: 3px solid #4fd1c7;
+        }
+        .step-number {
+            background: #4fd1c7;
+            color: #1a1f25;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #2d3748;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #4a5568;
+        }
+        .feature-title {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .code-block {
+            background: #1a1f25;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #4a5568;
+            margin: 10px 0;
+        }
+        .warning-box {
+            background: #fed7a1;
+            color: #744210;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #f6ad55;
+            margin: 15px 0;
+        }
+        .tip-box {
+            background: #bee3f8;
+            color: #2c5282;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+            margin: 15px 0;
+        }
+        .flow-diagram {
+            background: #2d3748;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .flow-step {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            margin: 5px;
+            position: relative;
+        }
+        .flow-arrow {
+            font-size: 20px;
+            color: #4fd1c7;
+            margin: 0 10px;
+        }
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+        .back-btn:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-btn">
+        <i class="ri-arrow-left-line"></i>
+        返回主页
+    </a>
+
+    <div class="guide-container">
+        <!-- 页面标题 -->
+        <div class="guide-header">
+            <h1><i class="ri-book-open-line"></i> 抖音自动化工具使用说明</h1>
+            <p>一站式抖音内容管理解决方案 - 从内容采集到自动上传的完整流程</p>
+        </div>
+
+        <!-- 导航菜单 -->
+        <div class="guide-nav">
+            <a href="#overview" class="nav-item"><i class="ri-eye-line"></i> 功能概览</a>
+            <a href="#setup" class="nav-item"><i class="ri-settings-line"></i> 初始设置</a>
+            <a href="#content-crawler" class="nav-item"><i class="ri-search-line"></i> 内容采集</a>
+            <a href="#download" class="nav-item"><i class="ri-download-line"></i> 视频下载</a>
+            <a href="#upload" class="nav-item"><i class="ri-upload-line"></i> 自动上传</a>
+            <a href="#multi-account" class="nav-item"><i class="ri-team-line"></i> 多账号管理</a>
+            <a href="#proxy" class="nav-item"><i class="ri-global-line"></i> 代理管理</a>
+            <a href="#troubleshooting" class="nav-item"><i class="ri-question-line"></i> 问题排查</a>
+        </div>
+
+        <!-- 功能概览 -->
+        <div id="overview" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-eye-line"></i>
+                功能概览
+            </h2>
+            
+            <div class="flow-diagram">
+                <h3>完整工作流程</h3>
+                <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px;">
+                    <div class="flow-step">1. 设置账号Cookie</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">2. 采集内容</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">3. 批量下载</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">4. 自动上传</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">5. 数据统计</div>
+                </div>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-title">
+                        <i class="ri-search-line"></i>
+                        智能内容采集
+                    </div>
+                    <p>• 关键词搜索视频<br>• 用户作品采集<br>• 热门内容发现<br>• 链接解析下载</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">
+                        <i class="ri-download-cloud-line"></i>
+                        批量视频下载
+                    </div>
+                    <p>• 实时进度显示<br>• 按用户分文件夹<br>• 自动生成标签文件<br>• 断点续传支持</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">
+                        <i class="ri-upload-cloud-line"></i>
+                        自动化上传
+                    </div>
+                    <p>• 定时发布功能<br>• 多账号轮换<br>• 风控智能规避<br>• 上传状态监控</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">
+                        <i class="ri-team-line"></i>
+                        多账号管理
+                    </div>
+                    <p>• Cookie自动生成<br>• 账号状态监控<br>• 指纹参数管理<br>• 代理IP绑定</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 初始设置 -->
+        <div id="setup" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-settings-line"></i>
+                初始设置
+            </h2>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-service-line"></i>
+                    1. 启动Downloader服务
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>检查服务状态</strong><br>
+                            在"内容采集"页面查看Downloader服务状态，确保显示为"运行中"
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>启动服务</strong><br>
+                            如果服务未运行，点击"启动服务"按钮，等待启动完成
+                        </div>
+                    </li>
+                </ol>
+                
+                <div class="warning-box">
+                    <strong>⚠️ 注意：</strong>Downloader服务是视频下载的核心组件，必须保持运行状态才能正常下载视频。
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-key-line"></i>
+                    2. 生成账号Cookie
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>打开Cookie管理</strong><br>
+                            切换到"Cookie管理"页面，点击"生成新Cookie"
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>填写账号信息</strong><br>
+                            输入Cookie名称（建议使用账号昵称），点击"生成Cookie"
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>浏览器登录</strong><br>
+                            在弹出的浏览器窗口中登录抖音账号，完成后点击"保存Cookie"
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="tip-box">
+                    <strong>💡 提示：</strong>每个抖音账号都需要生成对应的Cookie文件，用于后续的内容采集和上传操作。
+                </div>
+            </div>
+        </div>
+
+        <!-- 内容采集 -->
+        <div id="content-crawler" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-search-line"></i>
+                内容采集
+            </h2>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-search-eye-line"></i>
+                    视频搜索
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>设置搜索参数</strong><br>
+                            • 选择Cookie文件<br>
+                            • 输入搜索关键词<br>
+                            • 设置搜索数量（建议20-50个）
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>开始搜索</strong><br>
+                            点击"开始搜索"，等待结果返回
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>筛选结果</strong><br>
+                            查看搜索结果，选择需要下载的视频
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-user-line"></i>
+                    用户作品采集
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>获取用户信息</strong><br>
+                            在"用户作品"标签页输入用户ID或链接
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>设置采集参数</strong><br>
+                            选择Cookie和设置采集数量
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>批量采集</strong><br>
+                            点击"获取作品"开始批量采集该用户的视频
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- 视频下载 -->
+        <div id="download" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-download-line"></i>
+                视频下载
+            </h2>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-download-cloud-line"></i>
+                    批量下载流程
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>选择视频</strong><br>
+                            在搜索结果中勾选要下载的视频，或点击"全选"
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>配置下载设置</strong><br>
+                            点击"批量下载"按钮，在弹出的设置面板中：<br>
+                            • 选择Cookie文件（必选）<br>
+                            • 选择代理设置（可选）
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>开始下载</strong><br>
+                            点击"确认下载"，系统将显示实时进度
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">4</div>
+                        <div>
+                            <strong>监控进度</strong><br>
+                            通过进度面板查看：<br>
+                            • 当前下载进度<br>
+                            • 成功/失败统计<br>
+                            • 详细下载信息
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-folder-line"></i>
+                    文件组织结构
+                </h3>
+                <div class="code-block">
+downloads/<br>
+├── 用户名1/<br>
+│   ├── 视频标题_视频ID.mp4<br>
+│   ├── 视频标题_视频ID.txt  # 标签文件<br>
+│   └── ...<br>
+├── 用户名2/<br>
+│   └── ...<br>
+└── 未知用户/  # 无法获取用户信息的视频
+                </div>
+                
+                <div class="tip-box">
+                    <strong>💡 提示：</strong>系统会自动按照视频作者创建文件夹，并为每个视频生成包含标题和标签的txt文件。
+                </div>
+            </div>
+        </div>
+
+        <!-- 自动上传 -->
+        <div id="upload" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-upload-line"></i>
+                自动上传
+            </h2>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-upload-cloud-line"></i>
+                    单账号上传
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>选择视频文件</strong><br>
+                            在"视频上传"页面选择要上传的视频文件
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>配置上传设置</strong><br>
+                            • 选择Cookie账号<br>
+                            • 设置发布地点<br>
+                            • 选择发布方式（立即/定时）<br>
+                            • 设置上传间隔
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>开始上传</strong><br>
+                            点击"开始上传"，系统将自动处理队列中的视频
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-team-line"></i>
+                    多账号管理
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>创建上传任务</strong><br>
+                            在"多账号管理"页面点击"添加任务"
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>配置任务参数</strong><br>
+                            • 选择Cookie账号<br>
+                            • 复制选中的视频<br>
+                            • 设置定时发布时间<br>
+                            • 选择代理设置
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>批量执行</strong><br>
+                            添加多个任务后，点击"开始批量上传"
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="warning-box">
+                    <strong>⚠️ 风控提醒：</strong>建议设置合理的上传间隔（5-30分钟），避免触发平台风控机制。
+                </div>
+            </div>
+        </div>
+
+        <!-- 代理管理 -->
+        <div id="proxy" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-global-line"></i>
+                代理管理
+            </h2>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-add-line"></i>
+                    添加代理
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>填写代理信息</strong><br>
+                            • 代理名称（自定义）<br>
+                            • 主机地址<br>
+                            • 端口号<br>
+                            • 协议类型（HTTP/HTTPS/SOCKS5）
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>认证信息（可选）</strong><br>
+                            如果代理需要认证，填写用户名和密码
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>测试连接</strong><br>
+                            添加后系统会自动测试代理的连通性和延迟
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-links-line"></i>
+                    账号代理绑定
+                </h3>
+                <p>在"账号代理查看"部分可以看到每个Cookie账号当前绑定的代理信息，系统会自动管理账号与代理的对应关系。</p>
+                
+                <div class="tip-box">
+                    <strong>💡 建议：</strong>为每个账号配置独立的代理IP，可以有效降低账号间的关联风险。
+                </div>
+            </div>
+        </div>
+
+        <!-- 问题排查 -->
+        <div id="troubleshooting" class="guide-section">
+            <h2 class="section-title">
+                <i class="ri-question-line"></i>
+                常见问题排查
+            </h2>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-error-warning-line"></i>
+                    下载相关问题
+                </h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-title">Downloader服务未启动</div>
+                        <p><strong>解决方案：</strong><br>1. 检查服务状态<br>2. 点击"启动服务"<br>3. 确认端口8000未被占用</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-title">下载进度不显示</div>
+                        <p><strong>解决方案：</strong><br>1. 刷新页面重新连接WebSocket<br>2. 检查浏览器控制台错误<br>3. 确认Cookie文件有效</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-title">视频下载失败</div>
+                        <p><strong>解决方案：</strong><br>1. 检查Cookie是否过期<br>2. 尝试更换代理IP<br>3. 确认视频链接有效性</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-upload-line"></i>
+                    上传相关问题
+                </h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-title">Cookie过期</div>
+                        <p><strong>解决方案：</strong><br>1. 重新生成Cookie<br>2. 在浏览器中重新登录<br>3. 保存新的Cookie文件</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-title">上传卡住</div>
+                        <p><strong>解决方案：</strong><br>1. 检查网络连接<br>2. 确认视频格式支持<br>3. 尝试重启浏览器服务</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-title">风控限制</div>
+                        <p><strong>解决方案：</strong><br>1. 增加上传间隔时间<br>2. 更换IP地址<br>3. 减少每小时上传数量</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">
+                    <i class="ri-tools-line"></i>
+                    系统维护
+                </h3>
+                <ol class="step-list">
+                    <li class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>定期清理缓存</strong><br>
+                            定期清理downloads文件夹中的已上传视频
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>检查Cookie状态</strong><br>
+                            定期检查Cookie的有效性，及时更新过期账号
+                        </div>
+                    </li>
+                    <li class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>监控系统资源</strong><br>
+                            注意CPU和内存使用情况，避免系统过载
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- 返回顶部按钮 -->
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="#" onclick="window.scrollTo(0,0)" style="background: #667eea; color: white; padding: 12px 24px; border-radius: 25px; text-decoration: none;">
+                <i class="ri-arrow-up-line"></i> 返回顶部
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // 平滑滚动到目标位置
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // 更新导航状态
+                    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
+        });
+
+        // 滚动时更新导航状态
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('.guide-section');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 200) {
+                    current = '#' + section.getAttribute('id');
+                }
+            });
+
+            navItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('href') === current) {
+                    item.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -84,7 +84,7 @@
     animation: spin 1s linear infinite;
 }
 
-.video-editor-btn {
+.usage-guide-btn, .video-editor-btn {
     background: rgba(255,255,255,0.2);
     color: white;
     border: 1px solid rgba(255,255,255,0.3);
@@ -99,17 +99,26 @@
     transition: all 0.3s ease;
 }
 
-.video-editor-btn:hover {
+.usage-guide-btn:hover, .video-editor-btn:hover {
     background: rgba(255,255,255,0.3);
     transform: translateY(-1px);
 }
 
-.video-editor-btn:active {
+.usage-guide-btn:active, .video-editor-btn:active {
     transform: translateY(0);
 }
 
-.video-editor-btn i {
+.usage-guide-btn i, .video-editor-btn i {
     font-size: 16px;
+}
+
+.usage-guide-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+}
+
+.usage-guide-btn:hover {
+    background: rgba(255,255,255,0.25);
 }
 
 body {
