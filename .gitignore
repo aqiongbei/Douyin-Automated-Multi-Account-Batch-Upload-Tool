@@ -52,3 +52,6 @@ env/
 # Backup files
 *.bak
 *.backup
+
+# Configuration files
+conf/auth.json

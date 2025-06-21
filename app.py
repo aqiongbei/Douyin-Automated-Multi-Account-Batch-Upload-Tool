@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for, session, flash
+from conf.auth import login_required, verify_login, load_auth_config, save_auth_config
 import os
 import json
 import asyncio
@@ -605,6 +606,7 @@ def handle_close_browser(data):
             emit('error', {'message': f'会话 {session_id} 不存在或已关闭'})
 
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
@@ -4869,6 +4871,62 @@ def before_first_request():
     if not hasattr(app, 'initialized'):
         init_app()
         app.initialized = True
+
+# 设置Flask密钥
+app.secret_key = os.urandom(24)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        if verify_login(username, password):
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='用户名或密码错误')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/admin')
+@login_required
+def admin():
+    auth_config = load_auth_config()
+    return render_template('admin.html', username=auth_config['username'])
+
+@app.route('/api/update_auth', methods=['POST'])
+@login_required
+def update_auth():
+    new_username = request.form.get('username')
+    new_password = request.form.get('password')
+    
+    if not new_username or not new_password:
+        return jsonify({'success': False, 'message': '用户名和密码不能为空'})
+    
+    auth_config = load_auth_config()
+    auth_config['username'] = new_username
+    auth_config['password'] = new_password
+    save_auth_config(auth_config)
+    
+    return jsonify({'success': True, 'message': '账号信息更新成功'})
+
+# 为所有需要登录的路由添加验证
+@app.before_request
+def check_login():
+    # 不需要登录的路由
+    public_routes = ['login', 'static']
+    
+    # 检查当前路由是否需要登录
+    if (request.endpoint not in public_routes and 
+        'logged_in' not in session and 
+        not request.path.startswith('/static/')):
+        return redirect(url_for('login'))
 
 if __name__ == '__main__':
     print("📱 抖音自动化上传工具启动")
