@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "5000:5000"  # Web服务端口
-      - "8765:8765"  # WebSocket端口（如果需要）
+#      - "8765:8765"  # WebSocket端口（如果需要）
     volumes:
       - /vol1/1000/docker/douyinup/1/videos:/app/videos  # 视频文件持久化
       - /vol1/1000/docker/douyinup/1/database:/app/database  # 数据库持久化
