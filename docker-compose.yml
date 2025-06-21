@@ -2,10 +2,10 @@ version: '3.8'
 
 services:
   douyin-upload:
-    image: mcr.microsoft.com/playwright/python:v1.40.0-jammy
-    container_name: douyin-upload-auto
+    image: douyinup
+    container_name: douyin-upload-auto1
     ports:
-      - "0.0.0.0:5000:5000"    # Web界面端口
+      - "0.0.0.0:4990:5000"    # Web界面端口
     environment:
       - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
@@ -13,59 +13,17 @@ services:
       - DISPLAY=:99
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     volumes:
-      - .:/workspace
-      - /vol1/1000/docker/playwright-browser/cookie:/workspace/cookie
-      - /vol1/1000/docker/playwright-browser/videos:/workspace/videos
-      - /vol1/1000/docker/playwright-browser/downloads:/workspace/downloads
-      - /vol1/1000/docker/playwright-browser/database:/workspace/database
-      - /vol1/1000/docker/playwright-browser/logs:/workspace/logs
+      # 工作区目录
+      - .:/app
+      # 数据持久化目录
+      - /vol1/1000/docker/playwright-browser1/cookie:/app/cookie
+      - /vol1/1000/docker/playwright-browser1/videos:/app/videos
+      - /vol1/1000/docker/playwright-browser1/downloads:/app/downloads
+      - /vol1/1000/docker/playwright-browser1/database:/app/database
+      - /vol1/1000/docker/playwright-browser1/logs:/app/logs
+      # Playwright缓存
       - playwright-cache:/ms-playwright
-    working_dir: /workspace
-    command: >
-      bash -c "
-        # 使用清华大学镜像源
-        echo '配置国内镜像源...' &&
-        cp /etc/apt/sources.list /etc/apt/sources.list.bak &&
-        echo 'deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse' > /etc/apt/sources.list &&
-        echo 'deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-updates main restricted universe multiverse' >> /etc/apt/sources.list &&
-        echo 'deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-backports main restricted universe multiverse' >> /etc/apt/sources.list &&
-        echo 'deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-security main restricted universe multiverse' >> /etc/apt/sources.list &&
-        
-        echo 'Installing system dependencies...' &&
-        apt-get update && apt-get install -y ffmpeg wget gnupg &&
-        
-        # 安装 Node.js 18.x
-        echo 'Installing Node.js and npm...' &&
-        wget -qO- https://deb.nodesource.com/setup_18.x | bash - &&
-        apt-get install -y nodejs &&
-        
-        # 使用阿里云PyPI镜像
-        echo '配置pip国内镜像源...' &&
-        mkdir -p ~/.pip &&
-        echo '[global]' > ~/.pip/pip.conf &&
-        echo 'index-url = https://mirrors.aliyun.com/pypi/simple/' >> ~/.pip/pip.conf &&
-        echo 'trusted-host = mirrors.aliyun.com' >> ~/.pip/pip.conf &&
-        
-        # 更新pip到最新版本
-        echo 'Upgrading pip...' &&
-        python -m pip install --upgrade pip &&
-        
-        echo 'Installing main dependencies...' &&
-        pip install -r requirements.txt &&
-        
-        echo 'Installing Downloader dependencies...' &&
-        pip install -r Downloader/requirements.txt &&
-        
-        # 使用淘宝npm镜像
-        echo '配置npm国内镜像源...' &&
-        npm config set registry https://registry.npmmirror.com &&
-        
-        echo 'Installing Playwright browsers...' &&
-        npx playwright install chromium &&
-        
-        echo 'Starting application...' &&
-        python app.py
-      "
+    working_dir: /app
     networks:
       - douyin-net
     restart: unless-stopped
