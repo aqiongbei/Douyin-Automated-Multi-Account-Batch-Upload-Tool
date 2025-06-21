@@ -821,12 +821,20 @@ def process_video():
                     
                     # 生成输出文件名和路径
                     name, ext = os.path.splitext(video_filename)
-                    output_filename = f"{name}_edited{ext}"
+                    output_filename = f"{name}{ext}"
                     output_dir = os.path.join('videos', folder_name)
                     output_path = os.path.join(output_dir, output_filename)
                     
                     # 确保输出目录存在
                     os.makedirs(output_dir, exist_ok=True)
+                    
+                    # 如果文件已存在，添加数字后缀
+                    counter = 1
+                    base_name_for_conflict = name # 用于冲突处理的基础文件名
+                    while os.path.exists(output_path):
+                        output_filename = f"{base_name_for_conflict}_{counter}{ext}"
+                        output_path = os.path.join(output_dir, output_filename)
+                        counter += 1
                     
                     # 规范化路径格式，解决中文路径问题
                     output_path = os.path.normpath(output_path)
@@ -882,7 +890,7 @@ def process_video():
                         
                         if os.path.exists(original_txt_path):
                             # 复制txt文件到输出目录
-                            output_txt_path = os.path.join(output_dir, f"{name}_edited.txt")
+                            output_txt_path = os.path.join(output_dir, os.path.splitext(output_filename)[0] + ".txt")
                             try:
                                 import shutil
                                 shutil.copy2(original_txt_path, output_txt_path)
@@ -897,7 +905,7 @@ def process_video():
                                 original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
                             
                             if os.path.exists(original_img_path):
-                                output_img_path = os.path.join(output_dir, f"{name}_edited{img_ext}")
+                                output_img_path = os.path.join(output_dir, os.path.splitext(output_filename)[0] + img_ext)
                                 try:
                                     import shutil
                                     shutil.copy2(original_img_path, output_img_path)
@@ -959,7 +967,7 @@ def process_video():
             
             # 生成输出文件名和路径
             name, ext = os.path.splitext(video_filename)
-            output_filename = f"{name}_edited{ext}"
+            output_filename = f"{name}{ext}"
             output_dir = 'videos'
             output_path = os.path.join(output_dir, output_filename)
             
