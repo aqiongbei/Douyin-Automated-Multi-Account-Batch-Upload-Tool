@@ -2087,7 +2087,7 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
                 
                 upload_result = loop.run_until_complete(async_upload(video_path, account_file, title, tags, location, publish_date, update_status_callback))
                 
-                # 根据上传结果更新状态，避免状态不一致
+                # 根据上传结果更新状态
                 if upload_result:
                     # 更新状态为完成
                     for task in upload_tasks:
@@ -2097,71 +2097,62 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
                     douyin_logger.info(f"[+] 视频 {video_name} 上传成功")
                     # 写入历史（成功）
                     log_upload_history(
-                        cookie_name=task["cookie"],
+                        cookie_name=os.path.basename(account_file),
                         filename=os.path.basename(video_path),
                         status="success",
                         reason="上传成功"
                     )
-                    
-                    # 立即检查是否所有视频都已完成
-                    if task["completed_videos"] >= len(task["videos"]):
-                        douyin_logger.info(f"DEBUG: 任务 {task['cookie']} 达到完成条件，准备设置为completed状态")
-                        update_task_status(task, "completed", clear_video=True)
-                        douyin_logger.info(f"任务 {task['cookie']} 已完成所有视频上传: {task['completed_videos']}/{len(task['videos'])}")
-                        douyin_logger.info(f"DEBUG: 任务 {task['cookie']} 状态已更新为: {task['status']}")
-                        break  # 跳出循环，不再等待间隔
-                    else:
-                        # 如果还有视频要上传，保存当前进度
-                        update_task_status(task, "uploading", f"已完成 {task['completed_videos']}/{len(task['videos'])}")
-                        douyin_logger.info(f"DEBUG: 任务 {task['cookie']} 部分完成，状态保存为uploading")
                 else:
-                    douyin_logger.error(f"账号 {task['cookie']} 上传视频失败: {video_path}")
+                    # 更新状态为失败
+                    for task in upload_tasks:
+                        if task["path"] == video_path:
+                            task["status"] = "上传失败"
+                            break
+                    douyin_logger.error(f"视频 {video_name} 上传失败")
                     log_upload_history(
-                        cookie_name=task["cookie"],
+                        cookie_name=os.path.basename(account_file),
                         filename=os.path.basename(video_path),
                         status="failed",
                         reason="上传失败"
                     )
                 
-                loop.close()
+                # 从待上传列表中移除已处理的视频
+                videos_to_upload.pop(0)
                 
-                # 账号内视频上传间隔（并发模式）
-                if i < len(task["videos"]) - 1 and is_multi_uploading:
-                    douyin_logger.info(f"账号 {task['cookie']} 视频间隔等待 {task['upload_interval']} 分钟")
-                    # 更新状态为等待中
-                    update_task_status(task, "waiting", f"等待 {task['upload_interval']} 分钟后上传下一个视频")
-                    time.sleep(task["upload_interval"] * 60)
-                    
+                # 如果还有视频要上传，等待指定的间隔时间
+                if videos_to_upload:
+                    time.sleep(upload_interval * 60)
+                
             except Exception as e:
                 douyin_logger.error(f"上传视频 {video_path} 时发生错误: {str(e)}")
+                # 更新状态为失败
+                for task in upload_tasks:
+                    if task["path"] == video_path:
+                        task["status"] = f"上传失败: {str(e)}"
+                        break
                 log_upload_history(
-                    cookie_name=task["cookie"],
+                    cookie_name=os.path.basename(account_file),
                     filename=os.path.basename(video_path),
                     status="failed",
                     reason=str(e)
                 )
-        
-        # 完成状态（如果还没有设置为completed）
-        if task["status"] != "completed":
-            if task["completed_videos"] >= len(task["videos"]):
-                update_task_status(task, "completed", clear_video=True)
-            elif task["status"] != "stopped":
-                # 如果有部分完成，显示进度
-                if task["completed_videos"] > 0:
-                    update_task_status(task, "waiting", f"已完成 {task['completed_videos']}/{len(task['videos'])}")
-                else:
-                    update_task_status(task, "failed", "上传失败")
-        
-        # 检查是否所有任务都完成了（并发模式下）
-        if upload_mode == "concurrent":
-            all_completed = all(t["status"] in ["completed", "failed", "stopped"] for t in multi_account_tasks if t["videos"])
-            if all_completed:
-                is_multi_uploading = False
-                douyin_logger.info("所有并发任务已完成，停止多账号上传")
+                # 从待上传列表中移除失败的视频
+                videos_to_upload.pop(0)
+                
+                # 如果还有视频要上传，等待指定的间隔时间
+                if videos_to_upload:
+                    time.sleep(upload_interval * 60)
         
     except Exception as e:
-        update_task_status(task, "failed", f"错误: {str(e)}")
-        douyin_logger.error(f"账号 {task['cookie']} 上传任务失败: {str(e)}")
+        douyin_logger.error(f"批量上传任务失败: {str(e)}")
+        # 更新所有未完成任务的状态为失败
+        for task in upload_tasks:
+            if task["status"] not in ["上传成功", "上传失败"]:
+                task["status"] = f"任务失败: {str(e)}"
+    finally:
+        is_uploading = False
+        if loop and not loop.is_closed():
+            loop.close()
 
 async def async_upload(file_path, account_file, title, tags, location, publish_date, status_callback=None):
     full_path = os.path.join("videos", file_path)
@@ -2199,6 +2190,8 @@ async def async_upload(file_path, account_file, title, tags, location, publish_d
                                 status_callback(f"上传中: {message}")
                             elif event == "upload_complete":
                                 status_callback("视频上传完成")
+                            elif event == "upload_failed":
+                                status_callback(f"上传失败: {message}")
                             elif event == "publish_start":
                                 status_callback("开始发布...")
                             elif event == "publish_complete":
