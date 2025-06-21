@@ -12,11 +12,7 @@ Flask==3.0.0
 
 # WebSocket实时通信 - 支持实时浏览器视图和状态推送
 Flask-SocketIO==5.3.6
-
-# 事件驱动WebSocket服务器 - Socket.IO后端支持
 python-socketio==5.9.0
-
-# WSGI HTTP服务器 - 生产环境部署
 eventlet==0.33.3
 
 # GUI组件 - 桌面应用界面
@@ -26,52 +22,61 @@ tkcalendar==1.6.1
 
 # HTTP客户端 - API请求和代理测试
 requests==2.31.0
-
-# 异步HTTP客户端 - 代理管理和性能测试
 aiohttp==3.9.1
-
-# WebSocket客户端支持
 websockets==12.0
+httpx[socks]==0.28.1
 
 # ===== 数据处理 =====
 
 # JSON处理和验证
 jsonschema==4.20.0
+pydantic==2.10.6
 
 # 图像处理 - 用于截图处理和优化
 Pillow==10.2.0
+qrcode==8.0
 
 # Base64编码优化
 base64io==1.0.3
 
-# ===== 压缩包处理（可选） =====
+# ===== 压缩包处理 =====
 
-# RAR文件解压 - 支持.rar格式压缩包批量上传
+# 压缩包支持
 rarfile==4.1
-
-# 7Z文件解压 - 支持.7z格式压缩包批量上传
 py7zr==0.20.8
 
 # ===== 开发和调试 =====
 
-# 开发服务器热重载
+# 开发工具
 watchdog==3.0.0
-
-# 调试和性能分析
 psutil==5.9.7
+uvicorn==0.34.0
+fastapi==0.115.9
 
-# ===== 标准库依赖（已内置但列出以确保兼容性）=====
-# tkinter - GUI框架（Python内置）
-# sqlite3 - 数据库（Python内置）
-# datetime - 日期时间处理（Python内置）
-# logging - 日志记录（Python内置）
-# asyncio - 异步编程（Python内置）
-# threading - 多线程（Python内置）
-# json - JSON处理（Python内置）
-# os - 操作系统接口（Python内置）
-# time - 时间处理（Python内置）
-# urllib - URL处理（Python内置）
-# hashlib - 加密和哈希（Python内置）
+# ===== 数据库和文件处理 =====
+aiofiles==24.1.0
+aiosqlite==0.21.0
+openpyxl==3.1.5
+lxml==5.3.1
+
+# ===== 其他工具 =====
+emoji==2.14.1
+gmssl==3.2.2
+rich==13.9.4
+rookiepy==0.5.6
+
+# ===== 标准库依赖（已内置） =====
+# tkinter - GUI框架
+# sqlite3 - 数据库
+# datetime - 日期时间处理
+# logging - 日志记录
+# asyncio - 异步编程
+# threading - 多线程
+# json - JSON处理
+# os - 操作系统接口
+# time - 时间处理
+# urllib - URL处理
+# hashlib - 加密和哈希
 
 # ===== 安装说明 =====
 # 1. 安装Python依赖：
@@ -98,18 +103,3 @@ psutil==5.9.7
 # ✨ 响应式Web界面 - 支持桌面和移动端
 # ✨ 可视化操作 - 扫码登录、验证码输入可视化
 # ✨ 压缩包批量上传 - 支持.zip/.rar/.7z格式自动解压，保持文件夹结构
-
-# 新增的依赖包
-aiofiles>=24.1.0
-aiosqlite>=0.21.0
-emoji>=2.14.1
-fastapi>=0.115.9
-gmssl>=3.2.2
-httpx[socks]>=0.28.1
-lxml>=5.3.1
-openpyxl>=3.1.5
-pydantic>=2.10.6
-qrcode>=8.0
-rich>=13.9.4
-rookiepy>=0.5.6
-uvicorn>=0.34.0 
