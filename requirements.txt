@@ -5,7 +5,7 @@
 # ===== 核心依赖 =====
 
 # Web自动化框架 - 用于抖音网页操作和浏览器控制
-playwright==1.41.0
+playwright==1.40.0
 
 # Web框架 - Flask Web服务器
 Flask==3.0.0
