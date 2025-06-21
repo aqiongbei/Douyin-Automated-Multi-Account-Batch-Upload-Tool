@@ -1,20 +1,16 @@
-version: '3.8'
-
 services:
   douyin-up:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    image: douyin-up:latest  # 替换为实际镜像名称
     container_name: douyin-up
     restart: unless-stopped
     ports:
       - "5000:5000"  # Web服务端口
       - "8765:8765"  # WebSocket端口（如果需要）
     volumes:
-      - ./videos:/app/videos  # 视频文件持久化
-      - ./database:/app/database  # 数据库持久化
-      - ./cookie:/app/cookie  # Cookie持久化
-      - ./logs:/app/logs  # 日志持久化
+      - /vol1/1000/docker/douyinup/1/videos:/app/videos  # 视频文件持久化
+      - /vol1/1000/docker/douyinup/1/database:/app/database  # 数据库持久化
+      - /vol1/1000/docker/douyinup/1/cookie:/app/cookie  # Cookie持久化
+      - /vol1/1000/docker/douyinup/1/logs:/app/logs  # 日志持久化
     environment:
       - TZ=Asia/Shanghai  # 设置时区
       # 可选的环境变量配置
@@ -41,7 +37,7 @@ services:
   #   container_name: douyin-up-redis
   #   restart: unless-stopped
   #   volumes:
-  #     - ./redis-data:/data
+  #     - /vol1/1000/docker/douyinup/1/redis-data:/data
   #   ports:
   #     - "6379:6379"
 
@@ -54,8 +50,8 @@ services:
   #     - "80:80"
   #     - "443:443"
   #   volumes:
-  #     - ./nginx/conf.d:/etc/nginx/conf.d
-  #     - ./nginx/ssl:/etc/nginx/ssl
-  #     - ./static:/usr/share/nginx/html
+  #     - /vol1/1000/docker/douyinup/1/nginx/conf.d:/etc/nginx/conf.d
+  #     - /vol1/1000/docker/douyinup/1/nginx/ssl:/etc/nginx/ssl
+  #     - /vol1/1000/docker/douyinup/1/static:/usr/share/nginx/html
   #   depends_on:
   #     - douyin-up 
