@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  douyin-up:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: douyin-up
+    restart: unless-stopped
+    ports:
+      - "5000:5000"  # Web服务端口
+      - "8765:8765"  # WebSocket端口（如果需要）
+    volumes:
+      - ./videos:/app/videos  # 视频文件持久化
+      - ./database:/app/database  # 数据库持久化
+      - ./cookie:/app/cookie  # Cookie持久化
+      - ./logs:/app/logs  # 日志持久化
+    environment:
+      - TZ=Asia/Shanghai  # 设置时区
+      # 可选的环境变量配置
+      # - PROXY_HOST=your-proxy-host
+      # - PROXY_PORT=your-proxy-port
+      # - DEBUG=1
+    # 如果需要使用主机网络（在某些特殊情况下）
+    # network_mode: "host"
+    # 如果需要特权模式（比如使用显卡等）
+    # privileged: true
+    # 设置共享内存大小，避免浏览器内存不足
+    shm_size: '2gb'
+    # 设置资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 4G  # 最大内存限制
+        reservations:
+          memory: 1G  # 最小内存保证
+
+  # 如果需要Redis用于会话存储
+  # redis:
+  #   image: redis:alpine
+  #   container_name: douyin-up-redis
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./redis-data:/data
+  #   ports:
+  #     - "6379:6379"
+
+  # 如果需要Nginx作为反向代理
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: douyin-up-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/conf.d:/etc/nginx/conf.d
+  #     - ./nginx/ssl:/etc/nginx/ssl
+  #     - ./static:/usr/share/nginx/html
+  #   depends_on:
+  #     - douyin-up 
