@@ -126,6 +126,27 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 任务处理列表 -->
+                <div class="task-list-section">
+                    <div class="task-list-header">
+                        <h3><i class="ri-list-check"></i> 任务处理列表</h3>
+                        <div class="task-list-actions">
+                            <button id="cancel-all-pending-btn" class="task-list-action-btn cancel-all" onclick="cancelAllPendingTasks()">
+                                <i class="ri-stop-circle-line"></i> 批量取消待处理任务
+                            </button>
+                        </div>
+                    </div>
+                    <div class="task-list-container" id="task-list-container">
+                        <div class="empty-task-list" id="empty-task-list">
+                            <i class="ri-file-list-3-line"></i>
+                            <p>暂无处理任务</p>
+                        </div>
+                        <div class="task-list" id="task-list">
+                            <!-- 任务项将通过JavaScript动态添加 -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

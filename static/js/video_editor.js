@@ -73,6 +73,8 @@ let currentSettings = {
         aiGenerateType: 'nature'
     }
 };
+let tasksList = []; // 任务队列
+let processingTaskId = null; // 当前正在处理的任务ID
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -81,6 +83,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setupBitrateMode();
     loadDownloadsFolders();
     updatePresetsList();
+    initializeSettings();
+    setupRangeInputs();
+    resetAdjustments();
 });
 
 // 初始化事件监听器
@@ -578,161 +583,62 @@ async function processVideo() {
         return;
     }
     
-    // 显示处理状态
-    const statusDiv = document.getElementById('progress-section');
-    const progressFill = document.getElementById('progress-fill');
-    const progressText = document.getElementById('progress-text');
-    
-    statusDiv.style.display = 'block';
-    document.getElementById('process-btn').disabled = true;
-    
-    try {
-        // 模拟进度更新
-        const progressInterval = setInterval(() => {
-            const currentWidth = parseFloat(progressFill.style.width) || 0;
-            if (currentWidth < 90) {
-                const newWidth = Math.min(currentWidth + Math.random() * 10, 90);
-                progressFill.style.width = newWidth + '%';
-                progressText.textContent = Math.round(newWidth) + '%';
-            }
-        }, 500);
-        
-        // 发送请求到后端
-        let response;
-        
-        if (sourceType === 'upload') {
-            // 文件上传模式
-            const formData = new FormData();
-            formData.append('video', selectedVideo);
-            formData.append('settings', JSON.stringify(currentSettings));
-            
-            response = await fetch('/api/video/process', {
-                method: 'POST',
-                body: formData
+    // 创建处理任务
+    if (sourceType === 'upload') {
+        // 文件上传模式 - 创建单个任务
+        const videoName = selectedVideo.name || '上传视频';
+        createBatchVideoTasks([selectedVideo], {
+            sourceType: 'upload',
+            settings: JSON.parse(JSON.stringify(currentSettings))
+        });
+    } else {
+        // 文件夹选择模式
+        if (selectedFolder === '__all__') {
+            // 全选所有文件夹模式 - 创建多个任务
+            createBatchVideoTasks(selectedVideoNames, {
+                sourceType: 'folder',
+                folder: '__all__',
+                settings: JSON.parse(JSON.stringify(currentSettings))
             });
         } else {
-            // 文件夹选择模式
-            let requestData;
-            
-            if (selectedFolder === '__all__') {
-                // 处理全选所有文件夹的情况
-                const videos = selectedVideoNames.map(videoJson => {
-                    const videoData = JSON.parse(videoJson);
-                    return {
-                        folder: videoData.folder,
-                        filename: videoData.name
-                    };
-                });
-                
-                requestData = {
-                    all_folders: true,
-                    videos: videos,
-                    settings: currentSettings
-                };
-            } else {
-                // 原有逻辑 - 单个文件夹
-                requestData = {
-                    folder_name: selectedFolder,
-                    video_filenames: selectedVideoNames,
-                    settings: currentSettings
-                };
-            }
-            
-            // 调试：打印AB帧融合设置
-            console.log('发送到后端的AB帧融合设置:', currentSettings.abFusion);
-            
-            response = await fetch('/api/video/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
+            // 单个文件夹模式 - 创建多个任务
+            createBatchVideoTasks(selectedVideoNames, {
+                sourceType: 'folder',
+                folder: selectedFolder,
+                settings: JSON.parse(JSON.stringify(currentSettings))
             });
         }
-        
-        clearInterval(progressInterval);
-        progressFill.style.width = '100%';
-        progressText.textContent = '100%';
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            // 处理批量处理结果
-            if (result.processed_files && result.processed_files.length > 1) {
-                // 多文件处理结果
-                let downloadButtons = '';
-                result.processed_files.forEach(file => {
-                    const filename = file.processed.split('/').pop();
-                    downloadButtons += `
-                        <button onclick="downloadProcessedVideo('${file.processed}', '${filename}')" 
-                                style="background: var(--success-color); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 2px; font-size: 12px;">
-                            <i class="ri-download-line"></i> ${filename}
-                        </button>`;
-                });
-                
-                statusDiv.querySelector('.status-message').innerHTML = 
-                    `<div style="text-align: center;">
-                        <div style="margin-bottom: 12px;">
-                            <i class="ri-check-circle-line" style="color: var(--success-color);"></i>
-                            <span>${result.message}</span>
-                        </div>
-                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
-                            ${downloadButtons}
-                        </div>
-                        <button onclick="hideProcessStatus()" 
-                                style="background: var(--border-color); color: var(--text-color); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
-                            关闭
-                        </button>
-                    </div>`;
-            } else {
-                // 单文件处理结果
-                const filename = result.output_file.split('/').pop();
-                statusDiv.querySelector('.status-message').innerHTML = 
-                    `<div style="text-align: center;">
-                        <div style="margin-bottom: 12px;">
-                            <i class="ri-check-circle-line" style="color: var(--success-color);"></i>
-                            <span>视频处理完成！</span>
-                        </div>
-                        <button onclick="downloadProcessedVideo('${result.output_file}', '${filename}')" 
-                                style="background: var(--success-color); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-right: 8px;">
-                            <i class="ri-download-line"></i> 下载视频
-                        </button>
-                        <button onclick="hideProcessStatus()" 
-                                style="background: var(--border-color); color: var(--text-color); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
-                            关闭
-                        </button>
-                    </div>`;
-            }
-            
-            // 隐藏进度条和百分比文本，只保留结果消息
-            const progressBar = statusDiv.querySelector('.progress-bar');
-            const progressText = statusDiv.querySelector('.progress-text');
-            if (progressBar) {
-                progressBar.style.display = 'none';
-            }
-            if (progressText) {
-                progressText.style.display = 'none';
-            }
-            
-            // 启用处理按钮，但保持状态显示
-            document.getElementById('process-btn').disabled = false;
-            
-        } else {
-            throw new Error(result.error || '处理失败');
-        }
-        
-    } catch (error) {
-        console.error('处理失败:', error);
-        statusDiv.querySelector('.status-message').innerHTML = 
-            '<i class="ri-error-warning-line" style="color: var(--error-color);"></i><span>处理失败：' + error.message + '</span>';
-        
-        setTimeout(() => {
-            statusDiv.style.display = 'none';
-            document.getElementById('process-btn').disabled = false;
-            progressFill.style.width = '0%';
-            progressText.textContent = '0%';
-        }, 5000);
     }
+    
+    // 显示简短的处理提示
+    const statusDiv = document.getElementById('progress-section');
+    statusDiv.style.display = 'block';
+    statusDiv.querySelector('.status-message').innerHTML = 
+        `<div style="text-align: center;">
+            <div style="margin-bottom: 12px;">
+                <i class="ri-checkbox-circle-line" style="color: var(--success-color);"></i>
+                <span>视频处理任务已添加至队列</span>
+            </div>
+            <button onclick="hideProcessStatus()" 
+                    style="background: var(--border-color); color: var(--text-color); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+                关闭
+            </button>
+        </div>`;
+    
+    // 隐藏进度条
+    const progressBar = statusDiv.querySelector('.progress-bar');
+    const progressText = statusDiv.querySelector('.progress-text');
+    if (progressBar) {
+        progressBar.style.display = 'none';
+    }
+    if (progressText) {
+        progressText.style.display = 'none';
+    }
+    
+    // 3秒后自动隐藏状态提示
+    setTimeout(() => {
+        hideProcessStatus();
+    }, 3000);
 }
 
 // 保存预设
@@ -1550,4 +1456,405 @@ function applyPreset(platform) {
     
     updateABFusion();
     alert(`已应用${platform}优化预设`);
+}
+
+// 初始化设置
+function initializeSettings() {
+    // 初始化设置
+}
+
+// 创建新任务并加入任务列表
+function createVideoTask(videoName, taskParams) {
+    const taskId = 'task_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const newTask = {
+        id: taskId,
+        name: videoName,
+        status: 'pending', // pending, processing, completed, failed
+        progress: 0,
+        params: taskParams,
+        created: new Date(),
+        result: null,
+        error: null
+    };
+    
+    tasksList.push(newTask);
+    renderTasksList();
+    return taskId;
+}
+
+// 批量创建任务
+function createBatchVideoTasks(videos, commonParams) {
+    // 清除任务列表中已完成或失败的任务
+    cleanCompletedTasks();
+    
+    const taskIds = [];
+    videos.forEach(video => {
+        const videoName = typeof video === 'string' ? video : video.name || video.filename || '未命名视频';
+        const taskId = createVideoTask(videoName, {
+            ...commonParams,
+            video: video
+        });
+        taskIds.push(taskId);
+    });
+    
+    // 如果没有正在处理的任务，开始处理队列中第一个任务
+    if (!processingTaskId && taskIds.length > 0) {
+        processNextTask();
+    }
+    
+    return taskIds;
+}
+
+// 渲染任务列表
+function renderTasksList() {
+    const taskListContainer = document.getElementById('task-list-container');
+    const taskList = document.getElementById('task-list');
+    const emptyTaskList = document.getElementById('empty-task-list');
+    
+    if (tasksList.length === 0) {
+        emptyTaskList.style.display = 'flex';
+        taskList.innerHTML = '';
+        return;
+    }
+    
+    emptyTaskList.style.display = 'none';
+    taskList.innerHTML = '';
+    
+    tasksList.forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = `task-item ${task.status}`;
+        taskItem.id = `task-${task.id}`;
+        
+        // 获取人类可读的状态文本
+        const statusText = getStatusText(task.status);
+        
+        // 构建任务项HTML
+        let taskHTML = `
+            <div class="task-header">
+                <div class="task-name">${task.name}</div>
+                <span class="task-status ${task.status}">${statusText}</span>
+            </div>
+        `;
+        
+        // 如果正在处理或等待处理，添加进度条
+        if (task.status === 'processing' || task.status === 'pending') {
+            taskHTML += `
+                <div class="task-progress">
+                    <div class="task-progress-bar">
+                        <div class="task-progress-fill" style="width: ${task.progress}%"></div>
+                    </div>
+                    <div class="task-progress-text">${task.progress}%</div>
+                </div>
+            `;
+        }
+        
+        // 添加创建时间信息
+        taskHTML += `
+            <div class="task-info">
+                创建时间: ${formatTaskTime(task.created)}
+            </div>
+        `;
+        
+        // 如果有错误信息，显示错误
+        if (task.error) {
+            taskHTML += `
+                <div class="task-error">
+                    错误: ${task.error}
+                </div>
+            `;
+        }
+        
+        // 添加任务操作按钮
+        taskHTML += `<div class="task-actions">`;
+        
+        // 如果处理完成，显示下载按钮
+        if (task.status === 'completed' && task.result && task.result.output_file) {
+            const filename = task.result.output_file.split('/').pop();
+            taskHTML += `
+                <button class="task-action-btn download" onclick="downloadProcessedVideo('${task.result.output_file}', '${filename}')">
+                    <i class="ri-download-line"></i> 下载
+                </button>
+            `;
+        }
+        
+        // 如果正在处理，显示取消按钮
+        if (task.status === 'processing') {
+            taskHTML += `
+                <button class="task-action-btn cancel" onclick="cancelTask('${task.id}')">
+                    <i class="ri-close-circle-line"></i> 取消
+                </button>
+            `;
+        }
+        
+        // 如果已完成或失败，显示删除按钮
+        if (task.status === 'completed' || task.status === 'failed') {
+            taskHTML += `
+                <button class="task-action-btn" onclick="removeTask('${task.id}')">
+                    <i class="ri-delete-bin-line"></i> 删除
+                </button>
+            `;
+        }
+        
+        taskHTML += `</div>`;
+        
+        taskItem.innerHTML = taskHTML;
+        taskList.appendChild(taskItem);
+    });
+    
+    // 不再自动滚动到最新任务，保持用户当前的滚动位置
+}
+
+// 获取任务状态文本
+function getStatusText(status) {
+    const statusMap = {
+        'pending': '等待处理',
+        'processing': '处理中',
+        'completed': '已完成',
+        'failed': '处理失败'
+    };
+    return statusMap[status] || '未知状态';
+}
+
+// 格式化任务时间
+function formatTaskTime(date) {
+    if (!date) return '-';
+    const d = new Date(date);
+    return d.toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+// 更新任务状态
+function updateTaskStatus(taskId, status, progress = null, result = null, error = null) {
+    const taskIndex = tasksList.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return false;
+    
+    const task = tasksList[taskIndex];
+    
+    // 更新任务状态
+    task.status = status;
+    
+    // 如果提供了进度，更新进度
+    if (progress !== null) {
+        task.progress = progress;
+    }
+    
+    // 如果提供了结果，更新结果
+    if (result !== null) {
+        task.result = result;
+    }
+    
+    // 如果提供了错误，更新错误
+    if (error !== null) {
+        task.error = error;
+    }
+    
+    // 如果任务完成或失败，重置当前处理的任务ID
+    if (status === 'completed' || status === 'failed') {
+        if (processingTaskId === taskId) {
+            processingTaskId = null;
+            // 处理下一个任务
+            setTimeout(() => {
+                processNextTask();
+            }, 500);
+        }
+    }
+    
+    // 重新渲染任务列表
+    renderTasksList();
+    return true;
+}
+
+// 处理下一个待处理的任务
+function processNextTask() {
+    // 如果已有正在处理的任务，不处理新任务
+    if (processingTaskId) return;
+    
+    // 查找第一个待处理的任务
+    const pendingTask = tasksList.find(task => task.status === 'pending');
+    if (!pendingTask) return;
+    
+    // 设置当前处理的任务ID
+    processingTaskId = pendingTask.id;
+    
+    // 更新任务状态为处理中
+    updateTaskStatus(pendingTask.id, 'processing', 0);
+    
+    // 根据任务参数处理视频
+    processTaskVideo(pendingTask);
+}
+
+// 处理任务视频
+async function processTaskVideo(task) {
+    const params = task.params;
+    if (!params) {
+        updateTaskStatus(task.id, 'failed', 100, null, '任务参数无效');
+        return;
+    }
+    
+    try {
+        // 模拟进度更新
+        const progressInterval = setInterval(() => {
+            const currentProgress = task.progress;
+            if (currentProgress < 90) {
+                const newProgress = Math.min(currentProgress + Math.random() * 10, 90);
+                updateTaskStatus(task.id, 'processing', Math.round(newProgress));
+            }
+        }, 500);
+        
+        // 发送请求到后端
+        let response;
+        let requestData;
+        
+        if (params.sourceType === 'upload') {
+            // 文件上传模式
+            const formData = new FormData();
+            formData.append('video', params.video);
+            formData.append('settings', JSON.stringify(params.settings));
+            
+            response = await fetch('/api/video/process', {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            // 文件夹选择模式
+            if (params.folder === '__all__') {
+                // 处理全选所有文件夹的情况
+                const videoData = JSON.parse(params.video);
+                requestData = {
+                    all_folders: true,
+                    videos: [{
+                        folder: videoData.folder,
+                        filename: videoData.name
+                    }],
+                    settings: params.settings
+                };
+            } else {
+                // 原有逻辑 - 单个文件夹
+                requestData = {
+                    folder_name: params.folder,
+                    video_filenames: [params.video],
+                    settings: params.settings
+                };
+            }
+            
+            response = await fetch('/api/video/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+        }
+        
+        clearInterval(progressInterval);
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            // 更新任务状态为完成
+            updateTaskStatus(task.id, 'completed', 100, result);
+        } else {
+            // 更新任务状态为失败
+            const errorMsg = result.error || '处理失败';
+            updateTaskStatus(task.id, 'failed', 100, null, errorMsg);
+        }
+    } catch (error) {
+        console.error('处理视频任务失败:', error);
+        updateTaskStatus(task.id, 'failed', 100, null, error.message);
+    }
+}
+
+// 取消任务
+function cancelTask(taskId) {
+    const taskIndex = tasksList.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+    
+    const task = tasksList[taskIndex];
+    
+    // 如果任务正在处理中，尝试取消处理
+    if (task.status === 'processing') {
+        // TODO: 添加向后端发送取消请求的代码
+        
+        // 更新任务状态为失败
+        updateTaskStatus(taskId, 'failed', 100, null, '任务已取消');
+        
+        // 如果是当前正在处理的任务，重置处理任务ID
+        if (processingTaskId === taskId) {
+            processingTaskId = null;
+            
+            // 处理下一个任务
+            processNextTask();
+        }
+    }
+}
+
+// 从列表中删除任务
+function removeTask(taskId) {
+    const taskIndex = tasksList.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+    
+    // 如果是当前正在处理的任务，不允许删除
+    if (processingTaskId === taskId) {
+        alert('正在处理的任务不能删除');
+        return;
+    }
+    
+    // 从列表中删除任务
+    tasksList.splice(taskIndex, 1);
+    
+    // 重新渲染任务列表
+    renderTasksList();
+}
+
+// 清除已完成和失败的任务
+function cleanCompletedTasks() {
+    // 过滤保留待处理和处理中的任务
+    tasksList = tasksList.filter(task => 
+        task.status === 'pending' || 
+        task.status === 'processing'
+    );
+    
+    // 重新渲染任务列表
+    renderTasksList();
+}
+
+// 批量取消所有待处理任务
+function cancelAllPendingTasks() {
+    // 找出所有待处理状态的任务
+    const pendingTasks = tasksList.filter(task => task.status === 'pending');
+    
+    if (pendingTasks.length === 0) {
+        // 如果没有待处理任务，显示提示
+        alert('没有待处理的任务可取消');
+        return;
+    }
+    
+    // 确认是否取消
+    if (!confirm(`确定要取消 ${pendingTasks.length} 个待处理任务吗？`)) {
+        return;
+    }
+    
+    let canceledCount = 0;
+    
+    // 遍历待处理任务并取消
+    pendingTasks.forEach(task => {
+        // 更新任务状态为已取消
+        updateTaskStatus(task.id, 'failed', 0, null, '任务已批量取消');
+        canceledCount++;
+    });
+    
+    // 显示成功提示
+    alert(`已成功取消 ${canceledCount} 个待处理任务`);
+    
+    // 如果当前没有正在处理的任务但队列中可能还有待处理任务，尝试开始处理下一个任务
+    if (!processingTaskId) {
+        setTimeout(() => {
+            processNextTask();
+        }, 500);
+    }
 }
