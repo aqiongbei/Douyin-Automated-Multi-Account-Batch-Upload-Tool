@@ -634,24 +634,45 @@ def get_downloads_folders():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-# 获取指定文件夹下的视频文件列表
 @app.route('/api/downloads/videos/<folder_name>')
 def get_folder_videos_api(folder_name):
     try:
-        folder_path = os.path.join(os.getcwd(), 'downloads', folder_name)
-        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-            return jsonify({'success': False, 'error': '文件夹不存在'})
+        folder_path = os.path.join('downloads', folder_name)
+        if not os.path.exists(folder_path):
+            return jsonify({"success": False, "error": "文件夹不存在"})
         
-        video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.m4v']
-        videos = []
-        
-        for item in os.listdir(folder_path):
-            if any(item.lower().endswith(ext) for ext in video_extensions):
-                videos.append(item)
-        
-        return jsonify({'success': True, 'videos': videos})
+        videos = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith(('.mp4', '.mov', '.avi', '.mkv'))]
+        return jsonify({"success": True, "videos": videos})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        douyin_logger.error(f"获取文件夹视频列表失败: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/downloads/all_videos')
+def get_all_folder_videos_api():
+    try:
+        downloads_path = 'downloads'
+        if not os.path.exists(downloads_path):
+            return jsonify({"success": False, "error": "downloads目录不存在"})
+        
+        # 获取所有视频文件
+        all_videos = []
+        folders = [f for f in os.listdir(downloads_path) if os.path.isdir(os.path.join(downloads_path, f))]
+        
+        for folder in folders:
+            folder_path = os.path.join(downloads_path, folder)
+            videos = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith(('.mp4', '.mov', '.avi', '.mkv'))]
+            
+            # 添加每个视频的文件夹和名称信息
+            for video in videos:
+                all_videos.append({
+                    "folder": folder,
+                    "name": video
+                })
+        
+        return jsonify({"success": True, "videos": all_videos})
+    except Exception as e:
+        douyin_logger.error(f"获取所有视频列表失败: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/api/video/upload_b_video', methods=['POST'])
 def upload_b_video():
@@ -796,17 +817,175 @@ def process_video():
             # JSON请求 - 来自文件夹选择
             data = request.get_json()
             settings = data.get('settings', {})
-            folder_name = data.get('folder_name')
-            video_filenames = data.get('video_filenames', [])
             
-            # 向后兼容单个视频文件
-            if not video_filenames:
-                video_filename = data.get('video_filename')
-                if video_filename:
-                    video_filenames = [video_filename]
+            # 处理全选所有文件夹的情况
+            all_folders = data.get('all_folders', False)
             
-            if not folder_name or not video_filenames:
-                return jsonify({'error': '缺少文件夹或视频文件名'}), 400
+            if all_folders:
+                # 处理来自多个文件夹的视频
+                videos = data.get('videos', [])
+                if not videos:
+                    return jsonify({'error': '缺少视频列表'}), 400
+                
+                # 批量处理多个视频
+                processed_files = []
+                failed_files = []
+                
+                for video_data in videos:
+                    folder_name = video_data.get('folder')
+                    video_filename = video_data.get('filename')
+                    
+                    if not folder_name or not video_filename:
+                        failed_files.append(f'缺少文件夹或文件名: {video_data}')
+                        continue
+                        
+                    try:
+                        # 从downloads文件夹获取视频
+                        input_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
+                        input_path = os.path.normpath(input_path)  # 规范化输入路径
+                        if not os.path.exists(input_path):
+                            failed_files.append(f'{folder_name}/{video_filename}: 文件不存在')
+                            continue
+                        
+                        # 处理单个视频...
+                        # 生成输出文件名和路径
+                        name, ext = os.path.splitext(video_filename)
+                        output_filename = f"{name}{ext}"
+                        output_dir = os.path.join('videos', folder_name)
+                        output_path = os.path.join(output_dir, output_filename)
+                        
+                        # 确保输出目录存在
+                        os.makedirs(output_dir, exist_ok=True)
+                        
+                        # 如果文件已存在，添加数字后缀
+                        counter = 1
+                        base_name_for_conflict = name # 用于冲突处理的基础文件名
+                        while os.path.exists(output_path):
+                            output_filename = f"{base_name_for_conflict}_{counter}{ext}"
+                            output_path = os.path.join(output_dir, output_filename)
+                            counter += 1
+                        
+                        # 规范化路径格式，解决中文路径问题
+                        output_path = os.path.normpath(output_path)
+                        
+                        # 处理分屏自动选择逻辑
+                        split_screen = settings.get('splitScreen', {})
+                        if split_screen.get('enabled', False) and split_screen.get('direction') == 'auto':
+                            # 获取视频信息以确定分屏方向
+                            video_info = get_video_info(input_path)
+                            if video_info:
+                                # 竖屏视频使用左右分屏，横屏视频使用上下分屏
+                                if video_info['is_portrait']:
+                                    settings['splitScreen']['direction'] = 'horizontal'  # 左右分屏
+                                    douyin_logger.info(f"检测到竖屏视频 ({video_info['width']}x{video_info['height']})，自动选择左右分屏")
+                                else:
+                                    settings['splitScreen']['direction'] = 'vertical'    # 上下分屏
+                                    douyin_logger.info(f"检测到横屏视频 ({video_info['width']}x{video_info['height']})，自动选择上下分屏")
+                            else:
+                                # 无法获取视频信息时默认使用左右分屏
+                                settings['splitScreen']['direction'] = 'horizontal'
+                                douyin_logger.warning("无法获取视频信息，默认使用左右分屏")
+                        
+                        # 构建FFmpeg命令
+                        ffmpeg_cmd = build_ffmpeg_command(input_path, output_path, settings)
+                        
+                        # 打印FFmpeg命令以便调试
+                        douyin_logger.info(f"执行FFmpeg命令: {' '.join(ffmpeg_cmd)}")
+                        
+                        # 执行FFmpeg命令
+                        import subprocess
+                        try:
+                            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+                        except UnicodeDecodeError:
+                            # 如果UTF-8解码失败，尝试使用gbk编码
+                            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding='gbk', errors='ignore')
+                        
+                        # 处理执行结果...
+                        if result.stdout:
+                            douyin_logger.info(f"FFmpeg输出: {result.stdout}")
+                        if result.stderr:
+                            douyin_logger.error(f"FFmpeg错误: {result.stderr}")
+                        douyin_logger.info(f"FFmpeg返回码: {result.returncode}")
+                        
+                        if result.returncode == 0:
+                            # 处理成功，尝试复制对应的txt文件和图片
+                            import urllib.parse
+                            decoded_name = urllib.parse.unquote(name)
+                            original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}.txt")
+                            
+                            # 如果解码后的文件不存在，尝试使用原始文件名
+                            if not os.path.exists(original_txt_path):
+                                original_txt_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}.txt")
+                            
+                            if os.path.exists(original_txt_path):
+                                # 复制txt文件到输出目录
+                                output_txt_path = os.path.join(output_dir, os.path.splitext(output_filename)[0] + ".txt")
+                                try:
+                                    import shutil
+                                    shutil.copy2(original_txt_path, output_txt_path)
+                                    print(f"已复制txt文件: {original_txt_path} -> {output_txt_path}")
+                                except Exception as e:
+                                    print(f"复制txt文件失败: {e}")
+                            
+                            # 复制可能存在的封面图片文件
+                            for img_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}{img_ext}")
+                                if not os.path.exists(original_img_path):
+                                    original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
+                                
+                                if os.path.exists(original_img_path):
+                                    output_img_path = os.path.join(output_dir, os.path.splitext(output_filename)[0] + img_ext)
+                                    try:
+                                        import shutil
+                                        shutil.copy2(original_img_path, output_img_path)
+                                        print(f"已复制封面图片: {original_img_path} -> {output_img_path}")
+                                        break  # 只复制第一个找到的图片
+                                    except Exception as e:
+                                        print(f"复制封面图片失败: {e}")
+                            
+                            # 记录处理成功的文件
+                            relative_output = os.path.join(folder_name, output_filename).replace('\\', '/')
+                            processed_files.append({
+                                'original': f'{folder_name}/{video_filename}',
+                                'processed': relative_output
+                            })
+                        else:
+                            failed_files.append(f'{folder_name}/{video_filename}: {result.stderr}')
+                    
+                    except Exception as e:
+                        failed_files.append(f'{folder_name}/{video_filename}: {str(e)}')
+                
+                # 返回批量处理结果
+                if processed_files:
+                    message = f'成功处理 {len(processed_files)} 个视频'
+                    if failed_files:
+                        message += f'，{len(failed_files)} 个视频处理失败'
+                    
+                    return jsonify({
+                        'success': True,
+                        'processed_files': processed_files,
+                        'failed_files': failed_files,
+                        'output_file': processed_files[0]['processed'] if len(processed_files) == 1 else '',  # 兼容单文件
+                        'message': message
+                    })
+                else:
+                    return jsonify({
+                        'error': f'所有视频处理失败: {"; ".join(failed_files)}'
+                    }), 500
+            
+            # 原有逻辑：处理单个文件夹中的视频
+            else:
+                folder_name = data.get('folder_name')
+                video_filenames = data.get('video_filenames', [])
+                
+                # 向后兼容单个视频文件
+                if not video_filenames:
+                    video_filename = data.get('video_filename')
+                    if video_filename:
+                        video_filenames = [video_filename]
+                
+                if not folder_name or not video_filenames:
+                    return jsonify({'error': '缺少文件夹或视频文件名'}), 400
             
             # 批量处理多个视频
             processed_files = []

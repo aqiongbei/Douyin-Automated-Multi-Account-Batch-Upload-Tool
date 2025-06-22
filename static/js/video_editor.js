@@ -573,7 +573,7 @@ async function processVideo() {
         return;
     }
     
-    if (sourceType === 'folder' && (!selectedFolder || !selectedVideoName)) {
+    if (sourceType === 'folder' && (!selectedFolder || selectedVideoNames.length === 0)) {
         alert('请先选择文件夹和视频文件');
         return;
     }
@@ -611,12 +611,32 @@ async function processVideo() {
                 body: formData
             });
         } else {
-            // 文件夹选择模式 - 支持多选
-            const requestData = {
-                folder_name: selectedFolder,
-                video_filenames: selectedVideoNames, // 支持多个文件
-                settings: currentSettings
-            };
+            // 文件夹选择模式
+            let requestData;
+            
+            if (selectedFolder === '__all__') {
+                // 处理全选所有文件夹的情况
+                const videos = selectedVideoNames.map(videoJson => {
+                    const videoData = JSON.parse(videoJson);
+                    return {
+                        folder: videoData.folder,
+                        filename: videoData.name
+                    };
+                });
+                
+                requestData = {
+                    all_folders: true,
+                    videos: videos,
+                    settings: currentSettings
+                };
+            } else {
+                // 原有逻辑 - 单个文件夹
+                requestData = {
+                    folder_name: selectedFolder,
+                    video_filenames: selectedVideoNames,
+                    settings: currentSettings
+                };
+            }
             
             // 调试：打印AB帧融合设置
             console.log('发送到后端的AB帧融合设置:', currentSettings.abFusion);
@@ -901,6 +921,13 @@ async function loadDownloadsFolders() {
             const folderSelect = document.getElementById('folder-select');
             folderSelect.innerHTML = '<option value="">请选择下载文件夹</option>';
             
+            // 添加全选所有文件夹选项
+            const allFoldersOption = document.createElement('option');
+            allFoldersOption.value = '__all__';
+            allFoldersOption.textContent = '全选所有文件夹';
+            folderSelect.appendChild(allFoldersOption);
+            
+            // 添加各个文件夹选项
             data.folders.forEach(folder => {
                 const option = document.createElement('option');
                 option.value = folder;
@@ -926,28 +953,60 @@ async function loadFolderVideos() {
     }
     
     try {
-        const response = await fetch(`/api/downloads/videos/${encodeURIComponent(selectedFolderName)}`);
-        const data = await response.json();
+        let response, data;
         
-        if (data.success) {
-            const videoSelect = document.getElementById('video-select');
-            videoSelect.innerHTML = ''; // 清空选项，不添加"请选择视频文件"
+        // 处理全选所有文件夹的特殊情况
+        if (selectedFolderName === '__all__') {
+            response = await fetch('/api/downloads/all_videos');
+            data = await response.json();
             
-            data.videos.forEach(video => {
-                const option = document.createElement('option');
-                option.value = video;
-                option.textContent = video;
-                videoSelect.appendChild(option);
-            });
-            
-            selectedFolder = selectedFolderName;
-            selectedVideoNames = []; // 重置选中的视频
-            updateSelectedCount();
-            document.getElementById('video-select-section').style.display = 'block';
+            if (data.success) {
+                const videoSelect = document.getElementById('video-select');
+                videoSelect.innerHTML = ''; // 清空选项
+                
+                // 添加所有视频
+                data.videos.forEach(video => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(video); // 将视频信息存为JSON字符串
+                    option.textContent = `${video.folder}/${video.name}`; // 显示为"文件夹/文件名"格式
+                    videoSelect.appendChild(option);
+                });
+                
+                selectedFolder = '__all__';
+                selectedVideoNames = []; // 重置选中的视频
+                updateSelectedCount();
+                document.getElementById('video-select-section').style.display = 'block';
+                
+                // 选中所有视频
+                selectAllVideos();
+                return;
+            }
         } else {
-            console.error('加载视频列表失败:', data.error);
-            alert('加载视频列表失败: ' + data.error);
+            // 原有逻辑，加载单个文件夹的视频
+            response = await fetch(`/api/downloads/videos/${encodeURIComponent(selectedFolderName)}`);
+            data = await response.json();
+            
+            if (data.success) {
+                const videoSelect = document.getElementById('video-select');
+                videoSelect.innerHTML = ''; // 清空选项，不添加"请选择视频文件"
+                
+                data.videos.forEach(video => {
+                    const option = document.createElement('option');
+                    option.value = video;
+                    option.textContent = video;
+                    videoSelect.appendChild(option);
+                });
+                
+                selectedFolder = selectedFolderName;
+                selectedVideoNames = []; // 重置选中的视频
+                updateSelectedCount();
+                document.getElementById('video-select-section').style.display = 'block';
+                return;
+            }
         }
+        
+        console.error('加载视频列表失败:', data.error);
+        alert('加载视频列表失败: ' + data.error);
     } catch (error) {
         console.error('加载视频列表时发生错误:', error);
         alert('加载视频列表时发生错误: ' + error.message);
@@ -957,7 +1016,15 @@ async function loadFolderVideos() {
 // 处理文件夹视频选择
 function handleFolderVideoSelect() {
     const videoSelect = document.getElementById('video-select');
-    selectedVideoNames = Array.from(videoSelect.selectedOptions).map(option => option.value);
+    
+    // 获取选中的视频
+    if (selectedFolder === '__all__') {
+        // 处理全选所有文件夹的情况
+        selectedVideoNames = Array.from(videoSelect.selectedOptions).map(option => option.value);
+    } else {
+        // 原有逻辑
+        selectedVideoNames = Array.from(videoSelect.selectedOptions).map(option => option.value);
+    }
     
     if (selectedVideoNames.length === 0 || !selectedFolder) {
         removeVideo();
@@ -968,8 +1035,20 @@ function handleFolderVideoSelect() {
     updateSelectedCount();
     
     // 显示第一个视频的信息作为预览
-    const firstVideo = selectedVideoNames[0];
-    selectedVideoName = firstVideo; // 保持兼容性
+    let firstVideo, videoPath;
+    
+    if (selectedFolder === '__all__') {
+        // 处理全选所有文件夹情况下的视频预览
+        const firstVideoData = JSON.parse(selectedVideoNames[0]);
+        firstVideo = firstVideoData.name;
+        videoPath = `/videos/downloads/${firstVideoData.folder}/${firstVideoData.name}`;
+        selectedVideoName = firstVideo; // 保持兼容性
+    } else {
+        // 原有逻辑
+        firstVideo = selectedVideoNames[0];
+        videoPath = `/videos/downloads/${selectedFolder}/${firstVideo}`;
+        selectedVideoName = firstVideo; // 保持兼容性
+    }
     
     if (selectedVideoNames.length === 1) {
         // 单选模式：显示具体视频信息
@@ -985,7 +1064,6 @@ function handleFolderVideoSelect() {
     
     // 设置预览（使用第一个视频）
     const video = document.getElementById('preview-video');
-    const videoPath = `/videos/downloads/${selectedFolder}/${firstVideo}`;
     video.src = videoPath;
     
     video.onloadedmetadata = function() {
@@ -1018,7 +1096,7 @@ function handleFolderVideoSelect() {
     updatePresetButtons(document.querySelector('.preset-btn.original'));
     
     updateSettingsSummary();
-} 
+}
 
 // 预览视频效果
 function previewVideo() {
