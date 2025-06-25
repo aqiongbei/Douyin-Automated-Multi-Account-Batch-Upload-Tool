@@ -699,10 +699,13 @@
             <div class="section process-section">
                 <h2><i class="ri-video-download-line"></i> 视频处理</h2>
                 <div class="process-controls">
-                    <button class="process-btn" id="process-btn" onclick="processVideo()" disabled>
-                        <i class="ri-play-circle-line"></i>
-                        <span>开始处理</span>
+                    <button id="process-btn" class="process-btn" onclick="processVideo()" disabled>
+                        <i class="ri-movie-2-line"></i> 开始处理
                     </button>
+                    <div class="process-notice">
+                        <i class="ri-information-line"></i>
+                        <span>注意：处理完成后，原视频文件和对应的txt文件将被自动删除</span>
+                    </div>
                     
                     <div class="process-info">
                         <div class="settings-summary" id="settings-summary">

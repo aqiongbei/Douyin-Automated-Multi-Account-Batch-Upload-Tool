@@ -949,6 +949,39 @@ def process_video():
                                 'original': f'{folder_name}/{video_filename}',
                                 'processed': relative_output
                             })
+                            
+                            # 删除原视频文件
+                            try:
+                                original_video_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
+                                if os.path.exists(original_video_path):
+                                    os.remove(original_video_path)
+                                    douyin_logger.info(f"已删除原视频文件: {original_video_path}")
+                                
+                                # 删除对应的txt文件
+                                if os.path.exists(original_txt_path):
+                                    os.remove(original_txt_path)
+                                    douyin_logger.info(f"已删除原视频txt文件: {original_txt_path}")
+                                    
+                                # 删除对应的封面图片文件
+                                for img_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                    original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}{img_ext}")
+                                    if not os.path.exists(original_img_path):
+                                        original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
+                                    
+                                    if os.path.exists(original_img_path):
+                                        os.remove(original_img_path)
+                                        douyin_logger.info(f"已删除原视频封面图片: {original_img_path}")
+                                        break
+                                
+                                # 检查文件夹是否为空，如果为空则删除
+                                folder_path = os.path.join(os.getcwd(), 'downloads', folder_name)
+                                if os.path.exists(folder_path):
+                                    remaining_files = os.listdir(folder_path)
+                                    if not remaining_files:
+                                        os.rmdir(folder_path)
+                                        douyin_logger.info(f"文件夹已清空，删除空文件夹: {folder_path}")
+                            except Exception as e:
+                                douyin_logger.error(f"删除原文件失败: {str(e)}")
                         else:
                             failed_files.append(f'{folder_name}/{video_filename}: {result.stderr}')
                     
@@ -1101,6 +1134,39 @@ def process_video():
                             'original': video_filename,
                             'processed': relative_output
                         })
+                        
+                        # 删除原视频文件
+                        try:
+                            original_video_path = os.path.join(os.getcwd(), 'downloads', folder_name, video_filename)
+                            if os.path.exists(original_video_path):
+                                os.remove(original_video_path)
+                                douyin_logger.info(f"已删除原视频文件: {original_video_path}")
+                            
+                            # 删除对应的txt文件
+                            if os.path.exists(original_txt_path):
+                                os.remove(original_txt_path)
+                                douyin_logger.info(f"已删除原视频txt文件: {original_txt_path}")
+                                
+                            # 删除对应的封面图片文件
+                            for img_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{decoded_name}{img_ext}")
+                                if not os.path.exists(original_img_path):
+                                    original_img_path = os.path.join(os.getcwd(), 'downloads', folder_name, f"{name}{img_ext}")
+                                
+                                if os.path.exists(original_img_path):
+                                    os.remove(original_img_path)
+                                    douyin_logger.info(f"已删除原视频封面图片: {original_img_path}")
+                                    break
+                            
+                            # 检查文件夹是否为空，如果为空则删除
+                            folder_path = os.path.join(os.getcwd(), 'downloads', folder_name)
+                            if os.path.exists(folder_path):
+                                remaining_files = os.listdir(folder_path)
+                                if not remaining_files:
+                                    os.rmdir(folder_path)
+                                    douyin_logger.info(f"文件夹已清空，删除空文件夹: {folder_path}")
+                        except Exception as e:
+                            douyin_logger.error(f"删除原文件失败: {str(e)}")
                     else:
                         failed_files.append(f'{video_filename}: {result.stderr}')
                 
@@ -1198,6 +1264,14 @@ def process_video():
             douyin_logger.info(f"FFmpeg返回码: {result.returncode}")
             
             if result.returncode == 0:
+                # 临时文件处理完成后删除
+                try:
+                    import shutil
+                    shutil.rmtree(temp_dir)
+                    douyin_logger.info(f"已删除临时文件夹: {temp_dir}")
+                except Exception as e:
+                    douyin_logger.error(f"删除临时文件夹失败: {str(e)}")
+                
                 return jsonify({
                     'success': True,
                     'output_file': output_filename,

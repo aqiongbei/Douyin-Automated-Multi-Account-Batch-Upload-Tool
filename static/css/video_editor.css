@@ -1474,3 +1474,22 @@
 .split-options, .frame-skip-options, .zoom-options {
     margin-top: 15px;
 }
+
+/* 处理提示样式 */
+.process-notice {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background-color: rgba(255, 200, 0, 0.1);
+    border-left: 3px solid #ffc800;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    color: #e0e6ed;
+}
+
+.process-notice i {
+    margin-right: 8px;
+    color: #ffc800;
+    font-size: 16px;
+}
