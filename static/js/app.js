@@ -3046,7 +3046,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 停止多账号上传
     function stopMultiUpload() {
-        if (!confirm('确定要停止多账号上传吗？')) {
+        if (!confirm('确定要停止多账号上传吗？已上传的进度将被保存，下次可从断点继续。')) {
             return;
         }
         
@@ -3056,7 +3056,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('多账号上传已停止');
+                alert('多账号上传已停止，已上传的进度已保存，下次可从断点继续');
                 isMultiUploading = false;
                 updateMultiUploadButtons();
                 
@@ -3238,7 +3238,7 @@ ${videoList}${moreVideos}`);
     
     // 中止上传任务
     function stopUpload() {
-        if (!confirm('确定要中止所有上传任务吗？')) {
+        if (!confirm('确定要中止所有上传任务吗？已上传的进度将被保存，下次可从断点继续。')) {
             return;
         }
         

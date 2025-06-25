@@ -3007,10 +3007,16 @@ def start_multi_upload():
     data = request.json
     upload_mode = data.get('mode', 'sequential')  # sequential 或 concurrent
     
-    # 重置任务状态
+    # 处理任务状态（支持续传）
     for task in multi_account_tasks:
-        task["completed_videos"] = 0
-        update_task_status(task, "waiting", None, save_to_file=False)
+        # 如果任务是stopped状态，保留已完成的视频数量，实现续传
+        if task["status"] == "stopped":
+            douyin_logger.info(f"检测到已停止的任务: {task['cookie']}，已完成 {task['completed_videos']}/{len(task['videos'])} 个视频，将从断点继续")
+            update_task_status(task, "waiting", f"准备从第 {task['completed_videos']+1} 个视频继续上传", save_to_file=False)
+        else:
+            # 其他状态重置计数
+            task["completed_videos"] = 0
+            update_task_status(task, "waiting", None, save_to_file=False)
     save_multi_tasks_to_file()  # 批量保存
     
     current_task_index = 0
@@ -3105,11 +3111,16 @@ def multi_account_upload_thread(task):
                 return
         
                         # 逐个上传视频
-                for i, video_path in enumerate(task["videos"]):
+                # 如果是从停止状态恢复的任务，从已完成的视频数量开始继续上传
+                start_index = task["completed_videos"] if task["completed_videos"] > 0 else 0
+                
+                for i, video_path in enumerate(task["videos"][start_index:], start=start_index):
                     if not is_multi_uploading:  # 检查是否被停止
                         update_task_status(task, "stopped", "已手动停止")
                         douyin_logger.info(f"任务 {task['cookie']} 检测到停止信号，中断上传")
                         break
+                        
+                    douyin_logger.info(f"任务 {task['cookie']} 上传第 {i+1}/{len(task['videos'])} 个视频")
                 
             task["current_video"] = os.path.basename(video_path)
             
@@ -3223,7 +3234,13 @@ def sequential_upload_coordinator():
         
         # 为每个任务维护当前上传索引
         for task in valid_tasks:
-            task["current_upload_index"] = 0
+            # 如果是从停止状态恢复的任务，从已完成的视频数量开始继续上传
+            if task["status"] == "waiting" and task["completed_videos"] > 0:
+                task["current_upload_index"] = task["completed_videos"]
+                douyin_logger.info(f"任务 {task['cookie']} 从断点继续上传: 已完成 {task['completed_videos']}/{len(task['videos'])} 个视频")
+            else:
+                task["current_upload_index"] = 0
+            
             # 确保任务状态正确
             if task["status"] not in ["uploading", "waiting"]:
                 update_task_status(task, "waiting", None, save_to_file=False)
@@ -5430,17 +5447,20 @@ def stop_upload():
         if task["status"] in ["等待中", "上传中"]:
             task["status"] = "已中止"
     
-    # 更新多账号任务状态
+    # 更新多账号任务状态，保存进度以便续传
     for task in multi_account_tasks:
         if task["status"] in ["waiting", "uploading"]:
-            update_task_status(task, "stopped", "已中止上传")
+            # 记录已完成的视频数量，以便下次续传
+            progress_msg = f"已中止上传（已完成{task['completed_videos']}/{len(task['videos'])}个视频）"
+            update_task_status(task, "stopped", progress_msg)
+            douyin_logger.info(f"保存任务 {task['cookie']} 的上传进度: {task['completed_videos']}/{len(task['videos'])}，以便下次续传")
     
     # 保存多账号任务状态
     save_multi_tasks_to_file()
     
     return jsonify({
         "success": True,
-        "message": "已中止所有上传任务"
+        "message": "已中止所有上传任务，下次可从断点继续"
     })
 
 @app.route('/api/clear_tasks', methods=['POST'])
