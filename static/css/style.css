@@ -4282,3 +4282,93 @@ input[type="password"]:focus {
 .logout-btn:hover {
     background-color: #da190b;
 }
+
+.task-control-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.secondary-button {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.3s;
+}
+
+.secondary-button:hover {
+    background-color: #5a6268;
+}
+
+.secondary-button:disabled {
+    background-color: #adb5bd;
+    cursor: not-allowed;
+}
+
+.danger-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.3s;
+}
+
+.danger-button:hover {
+    background-color: #c82333;
+}
+
+.danger-button:disabled {
+    background-color: #f5c2c7;
+    cursor: not-allowed;
+}
+
+.risk-text {
+    color: #777;
+    font-size: 0.8em;
+    display: block;
+    margin-top: 3px;
+}
+
+/* 风控设置样式 */
+.risk-setting {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.risk-setting label {
+    min-width: 120px;
+    color: #fff !important;
+    font-weight: 500;
+}
+
+.risk-setting input {
+    width: 80px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: #181a20;
+    color: #fff;
+    font-size: 14px;
+}
+
+.risk-setting .tip {
+    font-size: 12px;
+    color: #e0e6ed !important;
+    font-style: italic;
+    margin-left: 10px;
+    flex: 1;
+}

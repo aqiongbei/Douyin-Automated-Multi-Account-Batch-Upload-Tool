@@ -2046,7 +2046,7 @@ def upload_videos():
     # 启动批量上传线程
     thread = threading.Thread(
         target=batch_upload_thread,
-        args=(videos, account_file, location, publish_date, upload_interval)
+        args=(videos, account_file, location, publish_date, upload_interval, risk_limit)
     )
     thread.start()
     
@@ -2219,7 +2219,7 @@ def get_title_tags_from_txt(video_path):
                 return title, tags
     return os.path.splitext(os.path.basename(video_path))[0], []
 
-def batch_upload_thread(videos, account_file, location, publish_date, upload_interval=5):
+def batch_upload_thread(videos, account_file, location, publish_date, upload_interval=5, risk_limit=5):
     global is_uploading, upload_tasks
     
     # 确保upload_interval是一个合法的整数
@@ -2229,6 +2229,14 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
             upload_interval = 1
     except:
         upload_interval = 5
+        
+    # 确保risk_limit是一个合法的整数
+    try:
+        risk_limit = int(risk_limit)
+        if risk_limit < 1:
+            risk_limit = 1
+    except:
+        risk_limit = 5
     
     is_uploading = True
     
@@ -2246,6 +2254,24 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
         # 使用while循环而不是for循环，确保可以动态移除已上传的视频
         while videos_to_upload:
             print(f"[DEBUG] 当前要上传的视频列表: {[os.path.basename(v) for v in videos_to_upload]}")
+            # 风控检测
+            cookie_name = os.path.basename(account_file)
+            count = get_upload_count_last_hour(cookie_name)
+            if count >= risk_limit:
+                # 更新所有任务状态为等待风控
+                wait_message = f"风控限制：每小时最多{risk_limit}个，已上传{count}个，等待中..."
+                douyin_logger.warning(f"账号 {cookie_name} 上传过于频繁，已自动延迟（每小时最多{risk_limit}个，已上传{count}个）")
+                for task in upload_tasks:
+                    if task["status"] == "等待中" or task["status"] == "上传中":
+                        task["status"] = wait_message
+                # 等待一小时后再继续
+                time.sleep(60 * 60)  # 等待1小时
+                # 恢复等待状态
+                for task in upload_tasks:
+                    if task["status"] == wait_message:
+                        task["status"] = "等待中"
+                continue
+            
             # 取出第一个视频进行上传
             video_path = videos_to_upload[0]
             
@@ -2831,6 +2857,7 @@ def add_multi_task():
             "videos": data.get('videos', []),
             "location": data.get('location', '杭州市'),
             "upload_interval": int(data.get('upload_interval', 5)),
+            "risk_limit": int(data.get('risk_limit', 5)),  # 添加风控阈值
             "publish_type": data.get('publish_type', 'now'),
             "publish_date": data.get('publish_date'),
             "publish_hour": data.get('publish_hour'),
@@ -2976,6 +3003,15 @@ def multi_account_upload_thread(task):
             update_task_status(task, "failed", "Cookie已失效")
             douyin_logger.warning(f"任务 {task['cookie']} cookie失效，跳过上传")
             return
+            
+        # 风控检测
+        risk_limit = task.get('risk_limit', 5)
+        count = get_upload_count_last_hour(task['cookie'])
+        if count >= risk_limit:
+            update_task_status(task, "waiting", f"风控限制：每小时最多{risk_limit}个，已上传{count}个")
+            douyin_logger.warning(f"账号 {task['cookie']} 上传过于频繁，已自动延迟（每小时最多{risk_limit}个，已上传{count}个）")
+            # 等待一小时后再继续
+            time.sleep(60 * 60)  # 等待1小时
         
         # 处理发布时间
         publish_date = 0
@@ -5289,6 +5325,53 @@ def add_video_md5():
             "success": False,
             "message": f"添加MD5记录失败: {str(e)}"
         }), 500
+
+@app.route('/api/stop_upload', methods=['POST'])
+def stop_upload():
+    """中止上传任务"""
+    global is_uploading, is_multi_uploading
+    
+    # 标记上传状态为已中止
+    is_uploading = False
+    is_multi_uploading = False
+    
+    # 更新所有等待中的任务状态为已中止
+    for task in upload_tasks:
+        if task["status"] in ["等待中", "上传中"]:
+            task["status"] = "已中止"
+    
+    # 更新多账号任务状态
+    for task in multi_account_tasks:
+        if task["status"] in ["waiting", "uploading"]:
+            update_task_status(task, "stopped", "已中止上传")
+    
+    # 保存多账号任务状态
+    save_multi_tasks_to_file()
+    
+    return jsonify({
+        "success": True,
+        "message": "已中止所有上传任务"
+    })
+
+@app.route('/api/clear_tasks', methods=['POST'])
+def clear_tasks():
+    """清空已中止的任务列表"""
+    global upload_tasks
+    
+    # 只有在没有正在上传的情况下才能清空
+    if is_uploading:
+        return jsonify({
+            "success": False,
+            "message": "无法清空正在进行中的任务"
+        }), 400
+    
+    # 清空任务列表
+    upload_tasks = []
+    
+    return jsonify({
+        "success": True,
+        "message": "已清空任务列表"
+    })
 
 if __name__ == '__main__':
     print("📱 抖音自动化上传工具启动")

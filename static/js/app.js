@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteCookieBtn = document.getElementById('delete-cookie');
     const selectedCookieIndicator = document.getElementById('selected-cookie-indicator');
     const selectedCookieName = document.getElementById('selected-cookie-name');
+    const stopUploadBtn = document.getElementById('stop-upload');
+    const clearTasksBtn = document.getElementById('clear-tasks');
     
     // 浏览器视图模态框元素
     const browserViewModal = document.getElementById('browser-view-modal');
@@ -122,6 +124,8 @@ document.addEventListener('DOMContentLoaded', function() {
     publishNowRadio.addEventListener('change', toggleScheduleOptions);
     publishScheduleRadio.addEventListener('change', toggleScheduleOptions);
     startUploadBtn.addEventListener('click', startUpload);
+    stopUploadBtn.addEventListener('click', stopUpload);
+    clearTasksBtn.addEventListener('click', clearTasks);
     
     // 浏览器视图事件
     closeBrowserViewBtn.addEventListener('click', closeBrowserView);
@@ -532,6 +536,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cookie: cookieSelect.value,
             location: locationInput.value.trim() || '杭州市',
             upload_interval: parseInt(uploadIntervalInput.value) || 5,
+            risk_limit: parseInt(document.getElementById('risk-limit').value) || 5,
             publish_type: publishNowRadio.checked ? 'now' : 'schedule'
         };
         
@@ -551,7 +556,16 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify(uploadData)
         })
-        .then(response => response.json())
+        .then(response => {
+            // 检查HTTP状态码
+            if (response.status === 429) {
+                // 风控限制错误
+                return response.json().then(data => {
+                    throw new Error(`风控限制: ${data.message || '上传频率超出限制，请稍后再试'}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 alert('上传任务已开始');
@@ -584,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('上传请求失败:', error);
-            alert('上传请求失败，请重试');
+            alert(error.message || '上传请求失败，请重试');
             startUploadBtn.disabled = false;
             startUploadBtn.textContent = '开始上传';
         });
@@ -677,6 +691,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         } else if (task.status.includes('失败') || task.status.includes('错误')) {
                             statusTd.className = 'status-error';
                             statusTd.innerHTML = `<i class="ri-error-warning-line"></i> ${task.status}`;
+                        } else if (task.status.includes('中止')) {
+                            statusTd.className = 'status-error';
+                            statusTd.innerHTML = `<i class="ri-stop-circle-line"></i> ${task.status}`;
                         } else if (task.status.includes('等待')) {
                             statusTd.className = 'status-waiting';
                             statusTd.innerHTML = `<i class="ri-time-line"></i> ${task.status}`;
@@ -690,6 +707,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 上传已结束，恢复按钮
                     startUploadBtn.disabled = false;
                     startUploadBtn.innerHTML = '<i class="ri-upload-cloud-line"></i> 开始上传';
+                    
+                    // 如果有任务，启用清空按钮
+                    clearTasksBtn.disabled = data.tasks.length === 0;
                     
                     if (data.tasks.length === 0) {
                         uploadStatus.innerHTML = '<i class="ri-information-line"></i> 未开始上传';
@@ -741,6 +761,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             } else if (task.status.includes('失败') || task.status.includes('错误')) {
                                 statusTd.className = 'status-error';
                                 statusTd.innerHTML = `<i class="ri-error-warning-line"></i> ${task.status}`;
+                            } else if (task.status.includes('中止')) {
+                                statusTd.className = 'status-error';
+                                statusTd.innerHTML = `<i class="ri-stop-circle-line"></i> ${task.status}`;
                             }
                             
                             tr.appendChild(nameTd);
@@ -2783,6 +2806,7 @@ document.addEventListener('DOMContentLoaded', function() {
             videos: selectedVideos.map(v => v.path),
             location: location,
             upload_interval: interval,
+            risk_limit: parseInt(document.getElementById('risk-limit').value) || 5, // 添加风控阈值
             publish_type: publishType
         };
         
@@ -2900,6 +2924,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </td>
                 <td>
                     <span class="interval-text">${task.upload_interval}分钟</span>
+                    <span class="risk-text">风控: ${task.risk_limit || 5}个/小时</span>
                 </td>
                 <td>
                     <div class="task-actions">
@@ -2988,7 +3013,16 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({ mode: uploadMode })
         })
-        .then(response => response.json())
+        .then(response => {
+            // 检查HTTP状态码
+            if (response.status === 429) {
+                // 风控限制错误
+                return response.json().then(data => {
+                    throw new Error(`风控限制: ${data.message || '上传频率超出限制，请稍后再试'}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 alert(`多账号上传已开始（${uploadMode === 'sequential' ? '轮询' : '并发'}模式）`);
@@ -3201,6 +3235,77 @@ ${videoList}${moreVideos}`);
     startUploadBtn.addEventListener('click', startUpload);
     publishNowRadio.addEventListener('change', toggleScheduleOptions);
     publishScheduleRadio.addEventListener('change', toggleScheduleOptions);
+    
+    // 中止上传任务
+    function stopUpload() {
+        if (!confirm('确定要中止所有上传任务吗？')) {
+            return;
+        }
+        
+        fetch('/api/stop_upload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                uploadStatus.textContent = '上传已中止';
+                stopCountdown();
+                
+                // 更新界面状态
+                startUploadBtn.disabled = false;
+                startUploadBtn.innerHTML = '<i class="ri-upload-cloud-line"></i> 开始上传';
+                
+                // 启用清空任务按钮
+                clearTasksBtn.disabled = false;
+                
+                // 刷新任务状态
+                refreshUploadStatus();
+            } else {
+                alert('中止上传失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('中止上传出错:', error);
+            alert('中止上传时发生错误');
+        });
+    }
+    
+    // 清空任务列表
+    function clearTasks() {
+        if (!confirm('确定要清空所有任务列表吗？')) {
+            return;
+        }
+        
+        fetch('/api/clear_tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 清空任务表格
+                uploadTasks.querySelector('tbody').innerHTML = '';
+                uploadTasks.classList.add('hidden');
+                
+                // 更新状态
+                uploadStatus.textContent = '未开始上传';
+                
+                // 禁用清空任务按钮
+                clearTasksBtn.disabled = true;
+            } else {
+                alert('清空任务失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('清空任务出错:', error);
+            alert('清空任务时发生错误');
+        });
+    }
     
     // 全局刷新函数
     function refreshAllData() {
