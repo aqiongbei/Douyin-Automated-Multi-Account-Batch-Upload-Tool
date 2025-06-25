@@ -9,6 +9,7 @@ from conf import LOCAL_CHROME_PATH
 from utils.base_social_media import set_init_script
 from utils.log import douyin_logger
 from utils.proxy_manager import proxy_manager
+from utils.md5_manager import md5_manager
 
 
 def get_browser_launch_options(headless=True, proxy_config=None):
@@ -530,7 +531,32 @@ class DouYinVideo(object):
         await page.locator('div[role="listbox"] [role="option"]').first.click()
 
     async def main(self):
-        async with async_playwright() as playwright:
-            await self.upload(playwright)
+        # 检查视频是否重复上传
+        douyin_logger.info(f"检查视频是否重复上传: {self.file_path}")
+        if md5_manager.is_duplicate(self.file_path):
+            douyin_logger.warning(f"视频重复检测: 检测到该视频已经上传过，跳过上传: {os.path.basename(self.file_path)}")
+            if self.status_handler:
+                await self.status_handler.handle_event("duplicate_detected", f"视频重复检测: 跳过上传已存在视频")
+            return False
+        
+        # 视频不重复，开始上传
+        try:
+            async with async_playwright() as playwright:
+                await self.upload(playwright)
+                
+            # 上传成功后，记录视频MD5
+            cookie_name = os.path.basename(self.account_file)
+            md5_manager.record_md5(
+                self.file_path, 
+                cookie_name=cookie_name,
+                title=self.title, 
+                tags=self.tags
+            )
+            return True
+        except Exception as e:
+            douyin_logger.error(f"视频上传失败: {str(e)}")
+            if self.status_handler:
+                await self.status_handler.handle_event("upload_error", f"上传失败: {str(e)}")
+            return False
 
 

@@ -2284,25 +2284,45 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
                         reason="上传成功"
                     )
                 else:
-                    # 更新状态为失败
-                    for task in upload_tasks:
-                        if task["path"] == video_path:
-                            task["status"] = "上传失败"
-                            break
-                    douyin_logger.error(f"视频 {video_name} 上传失败")
-                    log_upload_history(
-                        cookie_name=os.path.basename(account_file),
-                        filename=os.path.basename(video_path),
-                        status="failed",
-                        reason="上传失败"
-                    )
+                    # 检查是否是因为重复导致的失败
+                    from utils.md5_manager import md5_manager
+                    full_path = os.path.join("videos", video_path)
+                    if os.path.exists(full_path) and md5_manager.is_duplicate(full_path):
+                        # 更新状态为重复
+                        for task in upload_tasks:
+                            if task["path"] == video_path:
+                                task["status"] = "视频重复"
+                                break
+                        douyin_logger.warning(f"视频 {video_name} 重复，已跳过")
+                        log_upload_history(
+                            cookie_name=os.path.basename(account_file),
+                            filename=os.path.basename(video_path),
+                            status="skipped",
+                            reason="视频重复"
+                        )
+                    else:
+                        # 更新状态为失败
+                        for task in upload_tasks:
+                            if task["path"] == video_path:
+                                task["status"] = "上传失败"
+                                break
+                        douyin_logger.error(f"视频 {video_name} 上传失败")
+                        log_upload_history(
+                            cookie_name=os.path.basename(account_file),
+                            filename=os.path.basename(video_path),
+                            status="failed",
+                            reason="上传失败"
+                        )
                 
                 # 从待上传列表中移除已处理的视频
                 videos_to_upload.pop(0)
                 
-                # 如果还有视频要上传，等待指定的间隔时间
-                if videos_to_upload:
+                # 如果还有视频要上传，并且上一个视频成功上传了（不是被跳过的），才等待间隔时间
+                if videos_to_upload and upload_result is not False:  # False表示视频被跳过或上传失败
+                    douyin_logger.info(f"[+] 等待上传间隔 {upload_interval} 分钟后继续上传下一个视频")
                     time.sleep(upload_interval * 60)
+                elif videos_to_upload:
+                    douyin_logger.info(f"[+] 跳过等待间隔，立即处理下一个视频")
                 
             except Exception as e:
                 douyin_logger.error(f"上传视频 {video_path} 时发生错误: {str(e)}")
@@ -2322,6 +2342,7 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
                 
                 # 如果还有视频要上传，等待指定的间隔时间
                 if videos_to_upload:
+                    douyin_logger.info(f"[+] 等待上传间隔 {upload_interval} 分钟后继续上传下一个视频")
                     time.sleep(upload_interval * 60)
         
     except Exception as e:
@@ -2337,6 +2358,17 @@ def batch_upload_thread(videos, account_file, location, publish_date, upload_int
 
 async def async_upload(file_path, account_file, title, tags, location, publish_date, status_callback=None):
     full_path = os.path.join("videos", file_path)
+    
+    if status_callback:
+        status_callback("检查视频MD5...")
+    
+    # 导入MD5管理器并检查视频是否重复
+    from utils.md5_manager import md5_manager
+    if md5_manager.is_duplicate(full_path):
+        if status_callback:
+            status_callback("视频重复，跳过上传")
+        douyin_logger.warning(f"检测到重复视频，跳过上传: {os.path.basename(full_path)}")
+        return False  # 视频重复，返回上传失败
     
     if status_callback:
         status_callback("验证登录中...")
@@ -2373,6 +2405,8 @@ async def async_upload(file_path, account_file, title, tags, location, publish_d
                                 status_callback("视频上传完成")
                             elif event == "upload_failed":
                                 status_callback(f"上传失败: {message}")
+                            elif event == "duplicate_detected":  # 新增事件处理
+                                status_callback(f"视频重复: {message}")
                             elif event == "publish_start":
                                 status_callback("开始发布...")
                             elif event == "publish_complete":
@@ -2382,8 +2416,15 @@ async def async_upload(file_path, account_file, title, tags, location, publish_d
                 
                 # 添加状态处理器
                 video.status_handler = StatusHandler()
-                await video.upload(playwright, location=location)
-                return True  # 返回上传成功
+                upload_result = await video.main()  # 使用改进后的main方法，会自动记录MD5
+                
+                # 如果是由于视频重复导致的跳过，会返回False
+                if upload_result is False:
+                    if status_callback:
+                        status_callback("视频已存在，已跳过上传")
+                    return False
+                
+                return upload_result  # 返回上传结果
     except Exception as e:
         douyin_logger.error(f"上传过程中发生错误: {str(e)}")
         if status_callback:
@@ -3007,11 +3048,15 @@ def multi_account_upload_thread(task):
                 loop.close()
                 
                 # 账号内视频上传间隔（并发模式）
-                if i < len(task["videos"]) - 1 and is_multi_uploading:
+                # 只有在视频成功上传(而非跳过)的情况下才等待间隔时间
+                if i < len(task["videos"]) - 1 and is_multi_uploading and success is not False:
                     douyin_logger.info(f"账号 {task['cookie']} 视频间隔等待 {task['upload_interval']} 分钟")
                     # 更新状态为等待中
                     update_task_status(task, "waiting", f"等待 {task['upload_interval']} 分钟后上传下一个视频")
                     time.sleep(task["upload_interval"] * 60)
+                elif i < len(task["videos"]) - 1 and is_multi_uploading:
+                    douyin_logger.info(f"账号 {task['cookie']} 视频已跳过，立即处理下一个视频")
+                    update_task_status(task, "waiting", f"视频已跳过，立即处理下一个视频")
                     
             except Exception as e:
                 douyin_logger.error(f"上传视频 {video_path} 时发生错误: {str(e)}")
@@ -3082,10 +3127,12 @@ def sequential_upload_coordinator():
                     task["current_upload_index"] += 1
                     
                     # 账号间隔等待（轮询模式的核心）
-                    # 只有在还有其他账号需要上传时才等待
-                    if is_multi_uploading and any(t["current_upload_index"] < len(t["videos"]) for t in valid_tasks):
+                    # 只有在上传成功（而非跳过视频）且还有其他账号需要上传时才等待
+                    if is_multi_uploading and any(t["current_upload_index"] < len(t["videos"]) for t in valid_tasks) and success is not False:
                         douyin_logger.info(f"账号 {task['cookie']} 上传完成，等待 {task['upload_interval']} 分钟后轮询下一个账号")
                         time.sleep(task["upload_interval"] * 60)
+                    elif is_multi_uploading and any(t["current_upload_index"] < len(t["videos"]) for t in valid_tasks):
+                        douyin_logger.info(f"账号 {task['cookie']} 视频已跳过，立即轮询下一个账号")
         
         # 清理临时索引
         for task in valid_tasks:
@@ -3180,14 +3227,33 @@ def upload_single_video_for_task(task, video_index):
                 update_task_status(task, "waiting", f"已完成 {task['completed_videos']}/{len(task['videos'])}")
                 douyin_logger.info(f"任务 {task['cookie']} 部分完成: {task['completed_videos']}/{len(task['videos'])}")
         else:
-            log_upload_history(
-                cookie_name=task["cookie"],
-                filename=os.path.basename(video_path),
-                status="failed",
-                reason="上传失败"
-            )
-            # 上传失败但不设置整个任务为失败，继续下一个视频
-            update_task_status(task, task["status"], f"上传失败: {os.path.basename(video_path)}")
+            # 检查是否是因为视频重复导致的
+            from utils.md5_manager import md5_manager
+            full_path = os.path.join("videos", video_path)
+            if os.path.exists(full_path) and md5_manager.is_duplicate(full_path):
+                # 更新任务状态为跳过（视频重复）
+                log_upload_history(
+                    cookie_name=task["cookie"],
+                    filename=os.path.basename(video_path),
+                    status="skipped",
+                    reason="视频重复"
+                )
+                # 虽然跳过了，但也算处理完成，所以增加计数
+                task["completed_videos"] += 1
+                update_task_status(task, task["status"], f"视频重复，已跳过: {os.path.basename(video_path)}")
+                douyin_logger.warning(f"视频 {os.path.basename(video_path)} 重复，已跳过")
+                # 返回特殊值False表示视频被跳过，以便上层函数可以区分是否需要等待间隔
+                return False
+            else:
+                # 真正的上传失败
+                log_upload_history(
+                    cookie_name=task["cookie"],
+                    filename=os.path.basename(video_path),
+                    status="failed",
+                    reason="上传失败"
+                )
+                # 上传失败但不设置整个任务为失败，继续下一个视频
+                update_task_status(task, task["status"], f"上传失败: {os.path.basename(video_path)}")
         
         loop.close()
         return success
@@ -3995,6 +4061,13 @@ def move_video_files(extract_dir, task_id):
 def init_app_services():
     """初始化应用服务"""
     global current_download_thread
+    
+    # 初始化MD5管理器
+    try:
+        from utils.md5_manager import md5_manager
+        douyin_logger.info("✅ MD5管理器初始化成功")
+    except Exception as e:
+        douyin_logger.warning(f"⚠️ MD5管理器初始化失败: {str(e)}")
     
     # 如果正在下载，跳过服务检查，避免干扰下载进程
     if current_download_thread and current_download_thread.is_alive():
@@ -5106,6 +5179,116 @@ def check_login():
         'logged_in' not in session and 
         not request.path.startswith('/static/')):
         return redirect(url_for('login'))
+
+# MD5管理相关API
+@app.route('/api/md5/list', methods=['GET'])
+def list_md5_records():
+    """获取所有视频MD5记录"""
+    try:
+        from utils.md5_manager import md5_manager
+        
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 50, type=int)
+        offset = (page - 1) * limit
+        
+        records = md5_manager.get_all_records(limit=limit, offset=offset)
+        return jsonify({
+            "success": True,
+            "data": records
+        })
+    except Exception as e:
+        douyin_logger.error(f"获取MD5记录失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"获取MD5记录失败: {str(e)}"
+        }), 500
+
+@app.route('/api/md5/check', methods=['POST'])
+def check_md5_duplicate():
+    """检查视频是否重复"""
+    try:
+        from utils.md5_manager import md5_manager
+        
+        data = request.get_json()
+        file_path = data.get('file_path', '')
+        
+        if not file_path:
+            return jsonify({
+                "success": False,
+                "message": "未提供视频路径"
+            }), 400
+        
+        full_path = os.path.join("videos", file_path)
+        if not os.path.exists(full_path):
+            return jsonify({
+                "success": False,
+                "message": "视频文件不存在"
+            }), 404
+        
+        is_duplicate = md5_manager.is_duplicate(full_path)
+        md5_value = md5_manager.calculate_md5(full_path)
+        
+        return jsonify({
+            "success": True,
+            "is_duplicate": is_duplicate,
+            "md5": md5_value,
+            "message": "视频已存在" if is_duplicate else "视频未重复"
+        })
+    except Exception as e:
+        douyin_logger.error(f"检查MD5失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"检查MD5失败: {str(e)}"
+        }), 500
+
+@app.route('/api/md5/add', methods=['POST'])
+def add_video_md5():
+    """手动添加视频MD5记录"""
+    try:
+        from utils.md5_manager import md5_manager
+        
+        data = request.get_json()
+        file_path = data.get('file_path', '')
+        cookie_name = data.get('cookie_name', '')
+        title = data.get('title', '')
+        tags = data.get('tags', [])
+        
+        if not file_path:
+            return jsonify({
+                "success": False,
+                "message": "未提供视频路径"
+            }), 400
+        
+        full_path = os.path.join("videos", file_path)
+        if not os.path.exists(full_path):
+            return jsonify({
+                "success": False,
+                "message": "视频文件不存在"
+            }), 404
+        
+        success = md5_manager.record_md5(
+            full_path,
+            cookie_name=cookie_name,
+            title=title,
+            tags=tags
+        )
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "添加MD5记录成功"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "MD5记录已存在或添加失败"
+            }), 400
+    except Exception as e:
+        douyin_logger.error(f"添加MD5记录失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"添加MD5记录失败: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     print("📱 抖音自动化上传工具启动")
