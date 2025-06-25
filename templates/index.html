@@ -1227,11 +1227,11 @@
       let cookie = document.getElementById('history-cookie-select').value;
       fetch('/api/history?cookie='+cookie).then(r=>r.json()).then(data=>{
         // 仪表盘数据
-        let total = data.history.length;
+        let total = data.total || data.history.length;  // 使用API返回的总数
         let success = data.success;
         let fail = data.fail;
         let rate = total ? Math.round(success/total*100) : 0;
-        let last = total ? data.history[0].upload_time : '-';
+        let last = data.history.length ? data.history[0].upload_time : '-';
         document.getElementById('dash-total').innerText = total;
         document.getElementById('dash-success').innerText = success;
         document.getElementById('dash-fail').innerText = fail;
@@ -1247,6 +1247,17 @@
             <td>${h.reason||''}</td>
           </tr>
         `).join('');
+        
+        // 如果有更多记录，显示提示信息
+        if (data.total > data.history.length) {
+          tbody.innerHTML += `
+            <tr class="more-records-row">
+              <td colspan="4" class="more-records-notice">
+                <i class="ri-information-line"></i> 仅显示最近10条记录，共有 ${data.total} 条记录
+              </td>
+            </tr>
+          `;
+        }
       });
     }
     document.getElementById('export-history').onclick = function() {

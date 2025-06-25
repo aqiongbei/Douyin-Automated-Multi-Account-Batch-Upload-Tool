@@ -4383,3 +4383,21 @@ input[type="password"]:focus {
     margin-left: 10px;
     flex: 1;
 }
+
+/* 上传历史记录提示行样式 */
+.more-records-row {
+  background-color: rgba(255, 193, 7, 0.1);
+}
+
+.more-records-notice {
+  padding: 10px;
+  text-align: center;
+  color: #ffc107;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.more-records-notice i {
+  margin-right: 5px;
+  vertical-align: middle;
+}

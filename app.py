@@ -1996,10 +1996,15 @@ def api_history():
     rows = get_history(cookie)
     success = sum(1 for r in rows if r[2] == 'success')
     fail = sum(1 for r in rows if r[2] == 'fail')
+    
+    # 只返回最近的10条记录，但保留总计数
+    limited_rows = rows[:10] if len(rows) > 10 else rows
+    
     return jsonify({
-        "history": [dict(zip(['filename','upload_time','status','reason','url'], r)) for r in rows],
+        "history": [dict(zip(['filename','upload_time','status','reason','url'], r)) for r in limited_rows],
         "success": success,
-        "fail": fail
+        "fail": fail,
+        "total": len(rows)  # 添加总记录数
     })
 
 @app.route('/api/upload', methods=['POST'])
