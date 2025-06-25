@@ -11,6 +11,7 @@ services:
       - /vol1/1000/docker/douyinup/1/database:/app/database  # 数据库持久化
       - /vol1/1000/docker/douyinup/1/cookie:/app/cookie  # Cookie持久化
       - /vol1/1000/docker/douyinup/1/logs:/app/logs  # 日志持久化
+      - /vol1/1000/docker/douyinup/1/conf:/app/conf
     environment:
       - TZ=Asia/Shanghai  # 设置时区
       # 可选的环境变量配置
